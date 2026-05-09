@@ -393,13 +393,18 @@
                 </el-header>
                 
                 <el-main class="console-content">
+                    {% if category == 'games' %}
+                    <div style="display: flex; align-items: center; justify-content: center; min-height: 400px;">
+                        <el-empty description="小游戏功能开发中，敬请期待"></el-empty>
+                    </div>
+                    {% else %}
                     <!-- 工具选择界面 -->
                     <div class="tools-select-container">
                         <div class="tools-select-header">
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <el-input
                                     v-model="searchKeyword"
-                                    placeholder="{% if category == 'games' %}搜索小游戏{% else %}搜索小工具{% endif %}"
+                                    placeholder="搜索小工具"
                                     style="width: 300px"
                                     prefix-icon="el-icon-search"
                                     @input="handleSearch"
@@ -407,8 +412,8 @@
                                 <el-button type="primary" @click="handleSearch">查询</el-button>
                             </div>
                             <div class="pagination-container">
-                                <el-button 
-                                    type="text" 
+                                <el-button
+                                    type="text"
                                     @click="prevPage"
                                     :disabled="currentPage === 1"
                                 >
@@ -417,8 +422,8 @@
                                 <span style="margin: 0 10px;">
                                     [[ currentPage ]]/[[ totalPages ]]
                                 </span>
-                                <el-button 
-                                    type="text" 
+                                <el-button
+                                    type="text"
                                     @click="nextPage"
                                     :disabled="currentPage >= totalPages"
                                 >
@@ -428,8 +433,8 @@
                         </div>
                         <div class="tools-select-body">
                             <div class="tools-grid">
-                                <div 
-                                    v-for="tool in paginatedTools" 
+                                <div
+                                    v-for="tool in paginatedTools"
                                     :key="tool.id"
                                     class="tool-card"
                                     @click="navigateToToolExternal(tool)"
@@ -447,11 +452,12 @@
                                     </div>
                                 </div>
                                 <div v-if="paginatedTools.length === 0" class="empty-state">
-                                    <el-empty description="{% if category == 'games' %}暂无小游戏{% else %}暂无小工具{% endif %}"></el-empty>
+                                    <el-empty description="暂无小工具"></el-empty>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </el-main>
             </el-container>
         </el-container>
