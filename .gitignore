@@ -15,6 +15,10 @@ tools/ffmpeg/ffmpeg
 tools/ffmpeg/ffprobe
 tools/ffmpeg/ffmpeg.tar.xz
 
+# FFmpeg 二次编码临时文件
+ffmpeg2pass-0.log
+ffmpeg2pass-0.log.mbtree
+
 # 日志文件
 logs/
 *.log
@@ -32,6 +36,7 @@ ENV/
 # IDE 配置
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
