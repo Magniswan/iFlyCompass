@@ -22,6 +22,27 @@ def _check_video_access(video_path, user):
     if user.is_admin or user.is_super_admin:
         return True
 
+    # Check folder-level ACL (check all parent folders)
+    path_parts = video_path.replace('\\', '/').split('/')
+    for i in range(len(path_parts)):
+        folder = '/'.join(path_parts[:i]) if i > 0 else ''
+        if folder:
+            folder_acl = VideoFolderAccess.query.filter_by(folder_path=folder).first()
+            if folder_acl:
+                if folder_acl.mode == 'public':
+                    continue  # this folder is public, check parent
+                elif folder_acl.mode == 'admin_only':
+                    return False
+                elif folder_acl.mode == 'whitelist':
+                    folder_key = '__folder__' + folder
+                    if VideoAccessUser.query.filter_by(video_path=folder_key, user_id=user.id).first() is None:
+                        return False
+                elif folder_acl.mode == 'blacklist':
+                    folder_key = '__folder__' + folder
+                    if VideoAccessUser.query.filter_by(video_path=folder_key, user_id=user.id).first() is not None:
+                        return False
+
+    # Check per-file ACL
     acl = VideoAccessControl.query.filter_by(video_path=video_path).first()
     if not acl:
         return True

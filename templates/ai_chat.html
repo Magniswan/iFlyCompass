@@ -163,6 +163,20 @@
         .toggle-chip i { font-size:13px; }
         .refresh-models-btn { font-size:11px; color:#999; cursor:pointer; margin-left:auto; }
         .refresh-models-btn:hover { color:#4f6ef7; }
+
+        .settings-btn {
+            width:30px; height:30px; border-radius:6px; border:none; background:transparent;
+            cursor:pointer; font-size:15px; color:#999; display:flex; align-items:center; justify-content:center;
+        }
+        .settings-btn:hover { background:#f0f0f0; color:#4f6ef7; }
+
+        .thinking-section {
+            background:#fdf6ec; border-left:3px solid #e6a23c; padding:8px 12px;
+            border-radius:0 6px 6px 0; margin-bottom:8px; font-size:12px; color:#8c6d2f;
+            display:flex; align-items:flex-start; gap:6px;
+        }
+        .thinking-section i { font-size:14px; flex-shrink:0; margin-top:1px; }
+        .thinking-content { flex:1; word-break:break-word; max-height:200px; overflow-y:auto; }
     </style>
 </head>
 <body>
@@ -219,6 +233,9 @@
                         </el-popover>
                     </div>
                     <div class="bar-right">
+                        <button class="settings-btn" v-if="isAdmin" @click="showSettings = true" title="AI 设置">
+                            <i class="el-icon-setting"></i>
+                        </button>
                         <span class="refresh-models-btn" @click="refreshModels" title="刷新模型列表">
                             <i class="el-icon-refresh"></i>
                         </span>
@@ -243,7 +260,13 @@
                     </div>
                     <div v-for="(msg,idx) in messages" :key="idx" :class="['msg-row', msg.role]">
                         <div class="msg-avatar"><i v-if="msg.role==='assistant'" class="el-icon-cpu"></i><i v-else class="el-icon-user"></i></div>
-                        <div class="msg-bubble" v-html="renderMd(msg.content)"></div>
+                        <div style="max-width:82%;">
+                            <div v-if="msg.thinking" class="thinking-section">
+                                <i class="el-icon-view"></i>
+                                <div class="thinking-content">[[ msg.thinking ]]</div>
+                            </div>
+                            <div v-if="msg.content" class="msg-bubble" v-html="renderMd(msg.content)"></div>
+                        </div>
                     </div>
                     <div v-if="isLoading" class="msg-row assistant">
                         <div class="msg-avatar"><i class="el-icon-cpu"></i></div>
@@ -272,6 +295,40 @@
                 </div>
             </div>
         </div>
+
+        <!-- AI Settings Dialog (Admin Only) -->
+        <el-dialog
+            title="AI 设置"
+            :visible.sync="showSettings"
+            width="600px"
+            :close-on-click-modal="false"
+        >
+            <el-form label-width="120px" size="small">
+                <el-form-item label="API Key">
+                    <el-input v-model="aiConfig.api_key" type="password" show-password placeholder="输入新的 API Key（留空不修改）"></el-input>
+                    <div v-if="aiConfig.has_api_key" style="font-size:11px;color:#999;margin-top:2px;">当前已配置: [[ aiConfig.api_key_masked ]]</div>
+                </el-form-item>
+                <el-form-item label="API URL">
+                    <el-input v-model="aiConfig.api_url" placeholder="https://api.deepseek.com/v1/chat/completions"></el-input>
+                </el-form-item>
+                <el-form-item label="默认模型">
+                    <el-input v-model="aiConfig.model" placeholder="deepseek-chat"></el-input>
+                </el-form-item>
+                <el-form-item label="Max Tokens">
+                    <el-input-number v-model="aiConfig.max_tokens" :min="100" :max="16384" :step="256"></el-input-number>
+                </el-form-item>
+                <el-form-item label="Temperature">
+                    <el-slider v-model="aiConfig.temperature" :min="0" :max="2" :step="0.1" :marks="{0:'0', 0.5:'0.5', 1:'1', 1.5:'1.5', 2:'2'}" style="width:200px;"></el-slider>
+                </el-form-item>
+                <el-form-item label="系统提示词">
+                    <el-input type="textarea" v-model="aiConfig.system_prompt" :rows="3" placeholder="你是一个有用的AI助手，请用中文回答用户的问题。"></el-input>
+                </el-form-item>
+            </el-form>
+            <span slot="footer">
+                <el-button @click="showSettings = false">取消</el-button>
+                <el-button type="primary" @click="saveAiConfig" :loading="aiSaving">保存</el-button>
+            </span>
+        </el-dialog>
     </div>
 
     <script src="/assets/js/vue.min.js"></script>
@@ -287,6 +344,7 @@
                 return {
                     displayName: '{{ current_user.display_name }}',
                     username: '{{ current_user.username }}',
+                    isAdmin: {% if current_user.is_admin or current_user.is_super_admin %}true{% else %}false{% endif %},
                     conversations: [],
                     currentConvId: null,
                     messages: [],
@@ -296,7 +354,19 @@
                     selectedModel: '',
                     enableSearch: false,
                     enableThinking: false,
-                    sidebarVisible: true
+                    sidebarVisible: true,
+                    showSettings: false,
+                    aiSaving: false,
+                    aiConfig: {
+                        api_key: '',
+                        api_url: 'https://api.deepseek.com/v1/chat/completions',
+                        api_key_masked: '',
+                        has_api_key: false,
+                        model: 'deepseek-chat',
+                        max_tokens: 2048,
+                        temperature: 0.7,
+                        system_prompt: '你是一个有用的AI助手，请用中文回答用户的问题。'
+                    }
                 };
             },
             computed: {
@@ -311,6 +381,9 @@
                 await this.loadConversations();
                 if (this.conversations.length > 0) {
                     this.selectConversation(this.conversations[0].id);
+                }
+                if (this.isAdmin) {
+                    this.loadAiConfig();
                 }
             },
             methods: {
@@ -394,38 +467,95 @@
                 async sendMessage() {
                     var msg = this.inputMessage.trim();
                     if (!msg || this.isLoading) return;
+                    var self = this;
                     this.messages.push({ role:'user', content:msg });
                     this.inputMessage = '';
                     this.isLoading = true;
-                    this.$nextTick(function() { this.scrollToBottom(); }.bind(this));
+                    // Add a placeholder for streaming assistant response
+                    this.messages.push({ role:'assistant', content:'', thinking:'' });
+                    var assistantIdx = this.messages.length - 1;
+                    this.$nextTick(function() { self.scrollToBottom(); });
+
                     try {
-                        var r = await fetch('/api/ai-chat/send', {
+                        var r = await fetch('/api/ai-chat/stream', {
                             method:'POST',
                             headers:{'Content-Type':'application/json'},
                             body: JSON.stringify({
                                 message: msg,
-                                model: this.selectedModel || undefined,
-                                enable_search: this.enableSearch,
-                                enable_thinking: this.enableThinking,
-                                conversation_id: this.currentConvId || undefined
+                                model: self.selectedModel || undefined,
+                                enable_search: self.enableSearch,
+                                enable_thinking: self.enableThinking,
+                                conversation_id: self.currentConvId || undefined
                             })
                         });
-                        var d = await r.json();
-                        this.isLoading = false;
-                        if (d.error) {
-                            this.$message.error(d.error);
-                            this.messages.pop();
-                        } else {
-                            this.messages.push({ role:'assistant', content: d.message });
-                            if (d.conversation_id && !this.currentConvId) {
-                                this.currentConvId = d.conversation_id;
-                                this.loadConversations();
-                            }
-                            this.$nextTick(function() { this.scrollToBottom(); }.bind(this));
+
+                        if (!r.ok) {
+                            var errData = await r.json().catch(function() { return {error: '请求失败 (' + r.status + ')'}; });
+                            self.isLoading = false;
+                            self.$message.error(errData.error || '请求失败');
+                            self.messages.pop(); // remove assistant placeholder
+                            self.messages.pop(); // remove user msg
+                            return;
                         }
+
+                        var reader = r.body.getReader();
+                        var decoder = new TextDecoder();
+                        var buffer = '';
+                        var fullResponse = '';
+                        var fullThinking = '';
+
+                        while (true) {
+                            var result = await reader.read();
+                            if (result.done) break;
+                            buffer += decoder.decode(result.value, { stream: true });
+                            var lines = buffer.split('\n');
+                            buffer = lines.pop() || '';
+                            for (var i = 0; i < lines.length; i++) {
+                                var line = lines[i].trim();
+                                if (line.startsWith('data: ')) {
+                                    var ds = line.substring(6);
+                                    if (ds === '[DONE]') continue;
+                                    try {
+                                        var chunk = JSON.parse(ds);
+                                        if (chunk.error) {
+                                            self.isLoading = false;
+                                            self.$message.error(chunk.error);
+                                            self.messages.pop(); // remove assistant placeholder
+                                            self.messages.pop(); // remove user msg
+                                            return;
+                                        }
+                                        if (chunk.content) {
+                                            fullResponse += chunk.content;
+                                            self.messages[assistantIdx].content = fullResponse;
+                                            self.$nextTick(function() { self.scrollToBottom(); });
+                                        }
+                                        if (chunk.reasoning_content) {
+                                            fullThinking += chunk.reasoning_content;
+                                            self.messages[assistantIdx].thinking = fullThinking;
+                                            self.$nextTick(function() { self.scrollToBottom(); });
+                                        }
+                                        if (chunk.done) {
+                                            if (chunk.conversation_id && !self.currentConvId) {
+                                                self.currentConvId = chunk.conversation_id;
+                                                self.loadConversations();
+                                            }
+                                        }
+                                        if (chunk.usage) {
+                                            self.messages[assistantIdx].usage = chunk.usage;
+                                        }
+                                    } catch(e) { /* skip malformed JSON */ }
+                                }
+                            }
+                        }
+                        self.isLoading = false;
+                        if (!self.messages[assistantIdx].content && !self.messages[assistantIdx].thinking) {
+                            self.messages.pop(); // remove empty assistant
+                            self.$message.error('AI 未返回内容');
+                        }
+                        self.$nextTick(function() { self.scrollToBottom(); });
                     } catch(e) {
-                        this.isLoading = false;
-                        this.$message.error('请求失败: ' + e.message);
+                        self.isLoading = false;
+                        self.$message.error('请求失败: ' + e.message);
                     }
                 },
                 scrollToBottom() {
@@ -449,6 +579,57 @@
                     h = h.replace(/\n/g,'<br>');
                     if (!h.startsWith('<')) h = '<p>'+h+'</p>';
                     return h;
+                },
+                async loadAiConfig() {
+                    try {
+                        var r = await fetch('/api/ai-chat/config');
+                        var d = await r.json();
+                        if (!d.error) {
+                            this.aiConfig.api_url = d.api_url || 'https://api.deepseek.com/v1/chat/completions';
+                            this.aiConfig.api_key_masked = d.api_key_masked || '';
+                            this.aiConfig.has_api_key = d.has_api_key || false;
+                            this.aiConfig.model = d.model || 'deepseek-chat';
+                            this.aiConfig.max_tokens = d.max_tokens || 2048;
+                            this.aiConfig.temperature = d.temperature || 0.7;
+                            this.aiConfig.system_prompt = d.system_prompt || '你是一个有用的AI助手，请用中文回答用户的问题。';
+                            this.aiConfig.api_key = '';
+                        }
+                    } catch(e) { console.error('加载AI配置失败:', e); }
+                },
+                async saveAiConfig() {
+                    this.aiSaving = true;
+                    var self = this;
+                    try {
+                        var payload = {
+                            api_url: this.aiConfig.api_url,
+                            model: this.aiConfig.model,
+                            max_tokens: this.aiConfig.max_tokens,
+                            temperature: this.aiConfig.temperature,
+                            system_prompt: this.aiConfig.system_prompt
+                        };
+                        if (this.aiConfig.api_key && this.aiConfig.api_key.trim() && this.aiConfig.api_key.indexOf('****') === -1) {
+                            payload.api_key = this.aiConfig.api_key.trim();
+                        }
+                        var r = await fetch('/api/ai-chat/config', {
+                            method: 'PUT',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(payload)
+                        });
+                        var d = await r.json();
+                        this.aiSaving = false;
+                        if (d.error) {
+                            this.$message.error(d.error);
+                        } else {
+                            this.$message.success('AI设置已保存');
+                            this.aiConfig.api_key = '';
+                            this.showSettings = false;
+                            this.loadAiConfig();
+                            this.loadModels();
+                        }
+                    } catch(e) {
+                        this.aiSaving = false;
+                        this.$message.error('保存失败: ' + e.message);
+                    }
                 }
             }
         });

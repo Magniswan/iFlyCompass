@@ -120,30 +120,64 @@ def _build_payload(config, messages, stream=False, model_override=None,
     }
     if stream:
         payload['stream'] = True
-    if enable_thinking or config.get('thinking_enabled'):
+    # Per-request toggle takes priority; only enable thinking when user explicitly toggles it on
+    if enable_thinking:
         payload['thinking'] = {'type': 'enabled'}
         payload['reasoning_effort'] = config.get('reasoning_effort') or 'high'
-    elif config.get('reasoning_effort'):
-        payload['reasoning_effort'] = config['reasoning_effort']
     return payload
 
 
 def _web_search(query, max_results=5):
+    """Perform web search using Bing search engine."""
     try:
-        resp = requests.get('https://api.duckduckgo.com/',
-                            params={'q': query, 'format': 'json', 'no_html': 1, 'skip_disambig': 1},
-                            timeout=10, headers={'User-Agent': 'iFlyCompass/1.0'})
+        resp = requests.get('https://www.bing.com/search',
+                            params={'q': query, 'setlang': 'zh-Hans'},
+                            timeout=15,
+                            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
         if resp.status_code != 200:
+            print(f"[AI Search] Bing 返回 {resp.status_code}")
             return None
-        data = resp.json()
+
+        html = resp.text
         results = []
-        if data.get('AbstractText'):
-            results.append(f"摘要: {data['AbstractText']} (来源: {data.get('AbstractURL', '')})")
-        for topic in data.get('RelatedTopics', [])[:max_results]:
-            if isinstance(topic, dict) and topic.get('Text'):
-                results.append(f"- {topic['Text']} (来源: {topic.get('FirstURL', '')})")
-        return '\n'.join(results) if results else None
-    except Exception:
+
+        # Bing search result blocks are in <li class="b_algo">
+        # Title: <h2><a href="...">title</a></h2>
+        # Snippet: <p> or <div class="b_caption">...<p>snippet</p>
+        algo_pattern = re.compile(r'<li[^>]*class="b_algo"[^>]*>(.*?)</li>', re.DOTALL | re.IGNORECASE)
+        title_pattern = re.compile(r'<h2[^>]*><a[^>]*href="([^"]*)"[^>]*>(.*?)</a></h2>', re.DOTALL | re.IGNORECASE)
+        snippet_pattern = re.compile(r'<p[^>]*>(.*?)</p>', re.DOTALL | re.IGNORECASE)
+
+        blocks = algo_pattern.findall(html)
+        for block in blocks[:max_results]:
+            title_match = title_pattern.search(block)
+            if not title_match:
+                continue
+            url = title_match.group(1)
+            title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
+            if not title:
+                continue
+            snippet = ''
+            snippet_match = snippet_pattern.search(block)
+            if snippet_match:
+                snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
+            entry = f"- {title}"
+            if snippet:
+                entry += f": {snippet}"
+            if url:
+                entry += f" (来源: {url})"
+            results.append(entry)
+
+        if results:
+            return '\n'.join(results)
+
+        print("[AI Search] Bing 未解析到结果")
+        return None
+    except requests.exceptions.Timeout:
+        print("[AI Search] Bing 搜索超时")
+        return None
+    except Exception as e:
+        print(f"[AI Search] Bing 搜索失败: {e}")
         return None
 
 
@@ -526,6 +560,10 @@ def send_message_stream():
                             if 'choices' in chunk and chunk['choices']:
                                 delta = chunk['choices'][0].get('delta', {})
                                 content = delta.get('content', '')
+                                reasoning = delta.get('reasoning_content', '')
+                                if reasoning:
+                                    full_response += reasoning
+                                    yield f"data: {json.dumps({'reasoning_content': reasoning})}\n\n"
                                 if content:
                                     full_response += content
                                     yield f"data: {json.dumps({'content': content})}\n\n"

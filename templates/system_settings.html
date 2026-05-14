@@ -486,111 +486,7 @@
                                     </div>
                                 </el-tab-pane>
                                 
-                                <el-tab-pane label="AI 设置" name="ai">
-                                    <div class="settings-section">
-                                        <div class="settings-section-title">AI API 配置</div>
-                                        <div class="settings-item">
-                                            <div class="settings-item-content">
-                                                <div class="settings-item-label">API Key</div>
-                                                <div class="settings-item-desc">
-                                                    <span v-if="aiSettings.has_api_key">已配置 ([[ aiSettings.api_key_masked ]])</span>
-                                                    <span v-else style="color: #f56c6c;">未配置</span>
-                                                    <br><small style="color: #e6a23c;">⚠ 安全提示：保存后无法再次查看完整 API Key，请妥善保管</small>
-                                                </div>
-                                            </div>
-                                            <div class="settings-item-control">
-                                                <el-input 
-                                                    v-model="aiSettings.api_key" 
-                                                    placeholder="输入新的 API Key"
-                                                    :type="showApiKey ? 'text' : 'password'"
-                                                    show-password
-                                                    style="width: 280px;"
-                                                    size="small"
-                                                ></el-input>
-                                            </div>
-                                        </div>
-                                        <div class="settings-item">
-                                            <div class="settings-item-content">
-                                                <div class="settings-item-label">API URL</div>
-                                                <div class="settings-item-desc">OpenAI 兼容的 API 地址</div>
-                                            </div>
-                                            <div class="settings-item-control">
-                                                <el-input 
-                                                    v-model="aiSettings.api_url" 
-                                                    placeholder="https://api.openai.com/v1/chat/completions"
-                                                    style="width: 350px;"
-                                                    size="small"
-                                                ></el-input>
-                                            </div>
-                                        </div>
-                                        <div class="settings-item">
-                                            <div class="settings-item-content">
-                                                <div class="settings-item-label">模型</div>
-                                                <div class="settings-item-desc">使用的 AI 模型名称</div>
-                                            </div>
-                                            <div class="settings-item-control">
-                                                <el-input 
-                                                    v-model="aiSettings.model" 
-                                                    placeholder="gpt-3.5-turbo"
-                                                    style="width: 250px;"
-                                                    size="small"
-                                                ></el-input>
-                                            </div>
-                                        </div>
-                                        <div class="settings-item">
-                                            <div class="settings-item-content">
-                                                <div class="settings-item-label">Max Tokens</div>
-                                                <div class="settings-item-desc">单次回复最大 token 数 (100-16384)</div>
-                                            </div>
-                                            <div class="settings-item-control">
-                                                <el-input-number 
-                                                    v-model="aiSettings.max_tokens" 
-                                                    :min="100" 
-                                                    :max="16384"
-                                                    :step="256"
-                                                    size="small"
-                                                ></el-input-number>
-                                            </div>
-                                        </div>
-                                        <div class="settings-item">
-                                            <div class="settings-item-content">
-                                                <div class="settings-item-label">Temperature</div>
-                                                <div class="settings-item-desc">生成随机性 (0.0-2.0)，越高越有创意</div>
-                                            </div>
-                                            <div class="settings-item-control">
-                                                <el-slider 
-                                                    v-model="aiSettings.temperature" 
-                                                    :min="0" 
-                                                    :max="2" 
-                                                    :step="0.1"
-                                                    :marks="{0:'0', 0.5:'0.5', 1:'1', 1.5:'1.5', 2:'2'}"
-                                                    style="width: 200px;"
-                                                ></el-slider>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="settings-section">
-                                        <div class="settings-section-title">系统提示词</div>
-                                        <div class="settings-item">
-                                            <div class="settings-item-content" style="width: 100%;">
-                                                <div class="settings-item-label">System Prompt</div>
-                                                <div class="settings-item-desc">设置 AI 的角色和行为方式</div>
-                                                <el-input
-                                                    type="textarea"
-                                                    v-model="aiSettings.system_prompt"
-                                                    :rows="3"
-                                                    placeholder="你是一个有用的AI助手，请用中文回答用户的问题。"
-                                                    style="margin-top: 8px;"
-                                                ></el-input>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div style="margin-top: 16px; text-align: right;">
-                                        <el-button type="primary" @click="saveAiSettings" :loading="aiSaving">保存 AI 设置</el-button>
-                                    </div>
-                                </el-tab-pane>
+
                             </el-tabs>
                             
                             <div style="margin-top: 20px; text-align: right;" v-if="isSuperAdmin">
@@ -671,18 +567,7 @@
                     },
                     passwordStrengthOptions: [],
                     cardLayoutOptions: [],
-                    aiSettings: {
-                        api_key: '',
-                        api_url: 'https://api.openai.com/v1/chat/completions',
-                        api_key_masked: '',
-                        has_api_key: false,
-                        model: 'gpt-3.5-turbo',
-                        max_tokens: 2048,
-                        temperature: 0.7,
-                        system_prompt: '你是一个有用的AI助手，请用中文回答用户的问题。'
-                    },
-                    aiSaving: false,
-                    showApiKey: false
+
                 };
             },
             mounted() {
@@ -711,25 +596,6 @@
                         .catch(error => {
                             console.error('加载设置失败:', error);
                             this.$message.error('加载设置失败');
-                        });
-                    
-                    // Load AI settings
-                    fetch('/api/settings/ai')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (!data.error) {
-                                this.aiSettings.api_url = data.api_url || 'https://api.openai.com/v1/chat/completions';
-                                this.aiSettings.api_key_masked = data.api_key_masked || '';
-                                this.aiSettings.has_api_key = data.has_api_key || false;
-                                this.aiSettings.model = data.model || 'gpt-3.5-turbo';
-                                this.aiSettings.max_tokens = data.max_tokens || 2048;
-                                this.aiSettings.temperature = data.temperature || 0.7;
-                                this.aiSettings.system_prompt = data.system_prompt || '你是一个有用的AI助手，请用中文回答用户的问题。';
-                                this.aiSettings.api_key = ''; // Never pre-fill API key
-                            }
-                        })
-                        .catch(error => {
-                            console.error('加载AI设置失败:', error);
                         });
                 },
                 saveGeneralSettings() {
@@ -852,46 +718,7 @@
                 goToAnnouncementManage() {
                     window.location.href = '/board/announcements';
                 },
-                saveAiSettings() {
-                    this.aiSaving = true;
-                    const payload = {
-                        api_url: this.aiSettings.api_url,
-                        model: this.aiSettings.model,
-                        max_tokens: this.aiSettings.max_tokens,
-                        temperature: this.aiSettings.temperature,
-                        system_prompt: this.aiSettings.system_prompt
-                    };
-                    
-                    // Only include API key if a new one was entered
-                    if (this.aiSettings.api_key && this.aiSettings.api_key.trim()) {
-                        payload.api_key = this.aiSettings.api_key.trim();
-                    }
-                    
-                    fetch('/api/settings/ai', {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        this.aiSaving = false;
-                        if (data.error) {
-                            this.$message.error(data.error);
-                        } else {
-                            this.$message.success('AI设置已保存');
-                            this.aiSettings.api_key = ''; // Clear the input field
-                            // Reload to get updated masked key
-                            this.loadSettings();
-                        }
-                    })
-                    .catch(error => {
-                        this.aiSaving = false;
-                        console.error('保存AI设置失败:', error);
-                        this.$message.error('保存AI设置失败');
-                    });
-                }
+
             }
         });
     </script>
