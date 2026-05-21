@@ -256,6 +256,39 @@ def run_migrations(app):
             conn.commit()
             print("数据库迁移完成！")
 
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_conversation'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 ai_conversation 表...")
+            cursor.execute('''
+                CREATE TABLE ai_conversation (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    title VARCHAR(200) NOT NULL DEFAULT '新对话',
+                    model VARCHAR(100) NOT NULL DEFAULT 'deepseek-v4-flash',
+                    created_at DATETIME,
+                    updated_at DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES user(id)
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_message'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 ai_message 表...")
+            cursor.execute('''
+                CREATE TABLE ai_message (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    conversation_id INTEGER NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at DATETIME,
+                    FOREIGN KEY (conversation_id) REFERENCES ai_conversation(id)
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)

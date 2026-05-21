@@ -1,7 +1,6 @@
 import json
 import requests
 import threading
-import re
 from datetime import datetime, timezone
 from flask import jsonify, request, Response, stream_with_context
 from flask_login import login_required, current_user
@@ -19,8 +18,8 @@ MODELS_CACHE_TTL = 3600
 _current_conv = {}
 
 DEFAULT_MODELS = [
-    {"id": "deepseek-chat", "name": "DeepSeek-V3", "description": "通用对话模型"},
-    {"id": "deepseek-reasoner", "name": "DeepSeek-R1", "description": "深度推理模型，支持思考"},
+    {"id": "deepseek-v4-flash", "name": "DeepSeek-V4 Flash", "description": "最新轻量高速模型，支持深度思考，快速响应"},
+    {"id": "deepseek-v4-pro", "name": "DeepSeek-V4 Pro", "description": "最新旗舰模型，支持深度思考，擅长复杂推理与长文本"},
 ]
 
 
@@ -56,7 +55,7 @@ def _get_api_config():
     return {
         'api_url': _normalize_api_url(raw_url),
         'api_key': decrypt_value(raw_key) if raw_key else '',
-        'model': ai_config.get('model', 'deepseek-chat'),
+        'model': ai_config.get('model', 'deepseek-v4-flash'),
         'max_tokens': ai_config.get('max_tokens', 2048),
         'temperature': ai_config.get('temperature', 0.7),
         'system_prompt': ai_config.get('system_prompt', '你是一个有用的AI助手，请用中文回答用户的问题。'),
@@ -112,7 +111,7 @@ def _get_models():
 
 
 def _build_payload(config, messages, stream=False, model_override=None,
-                   enable_thinking=False):
+                   enable_thinking=None):
     model = model_override or config['model']
     payload = {
         'model': model, 'messages': messages,
@@ -120,65 +119,12 @@ def _build_payload(config, messages, stream=False, model_override=None,
     }
     if stream:
         payload['stream'] = True
-    # Per-request toggle takes priority; only enable thinking when user explicitly toggles it on
-    if enable_thinking:
-        payload['thinking'] = {'type': 'enabled'}
-        payload['reasoning_effort'] = config.get('reasoning_effort') or 'high'
+        payload['stream_options'] = {'include_usage': True}
+    if enable_thinking is not None:
+        payload['thinking'] = {'type': 'enabled' if enable_thinking else 'disabled'}
+        if enable_thinking:
+            payload['reasoning_effort'] = config.get('reasoning_effort') or 'high'
     return payload
-
-
-def _web_search(query, max_results=5):
-    """Perform web search using Bing search engine."""
-    try:
-        resp = requests.get('https://www.bing.com/search',
-                            params={'q': query, 'setlang': 'zh-Hans'},
-                            timeout=15,
-                            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
-        if resp.status_code != 200:
-            print(f"[AI Search] Bing 返回 {resp.status_code}")
-            return None
-
-        html = resp.text
-        results = []
-
-        # Bing search result blocks are in <li class="b_algo">
-        # Title: <h2><a href="...">title</a></h2>
-        # Snippet: <p> or <div class="b_caption">...<p>snippet</p>
-        algo_pattern = re.compile(r'<li[^>]*class="b_algo"[^>]*>(.*?)</li>', re.DOTALL | re.IGNORECASE)
-        title_pattern = re.compile(r'<h2[^>]*><a[^>]*href="([^"]*)"[^>]*>(.*?)</a></h2>', re.DOTALL | re.IGNORECASE)
-        snippet_pattern = re.compile(r'<p[^>]*>(.*?)</p>', re.DOTALL | re.IGNORECASE)
-
-        blocks = algo_pattern.findall(html)
-        for block in blocks[:max_results]:
-            title_match = title_pattern.search(block)
-            if not title_match:
-                continue
-            url = title_match.group(1)
-            title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
-            if not title:
-                continue
-            snippet = ''
-            snippet_match = snippet_pattern.search(block)
-            if snippet_match:
-                snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
-            entry = f"- {title}"
-            if snippet:
-                entry += f": {snippet}"
-            if url:
-                entry += f" (来源: {url})"
-            results.append(entry)
-
-        if results:
-            return '\n'.join(results)
-
-        print("[AI Search] Bing 未解析到结果")
-        return None
-    except requests.exceptions.Timeout:
-        print("[AI Search] Bing 搜索超时")
-        return None
-    except Exception as e:
-        print(f"[AI Search] Bing 搜索失败: {e}")
-        return None
 
 
 def _auto_title(content):
@@ -388,8 +334,7 @@ def send_message():
     data = request.json
     message = data.get('message', '').strip()
     model_override = data.get('model')
-    enable_search = data.get('enable_search', False)
-    enable_thinking = data.get('enable_thinking', False)
+    enable_thinking = data.get('enable_thinking')
     conv_id_param = data.get('conversation_id')
 
     if not message:
@@ -420,10 +365,6 @@ def send_message():
 
     db_messages = conv.messages.order_by(AiMessage.created_at.asc()).all()
     system_content = config['system_prompt']
-    if enable_search:
-        sr = _web_search(message)
-        if sr:
-            system_content += f'\n\n[联网搜索结果]\n{sr}\n\n请基于以上搜索结果回答用户问题，并在回答中引用相关来源。'
 
     messages = [{"role": "system", "content": system_content}]
     max_pairs = 20
@@ -480,8 +421,7 @@ def send_message_stream():
     data = request.json
     message = data.get('message', '').strip()
     model_override = data.get('model')
-    enable_search = data.get('enable_search', False)
-    enable_thinking = data.get('enable_thinking', False)
+    enable_thinking = data.get('enable_thinking')
     conv_id_param = data.get('conversation_id')
 
     if not message:
@@ -512,10 +452,6 @@ def send_message_stream():
 
     db_messages = conv.messages.order_by(AiMessage.created_at.asc()).all()
     system_content = config['system_prompt']
-    if enable_search:
-        sr = _web_search(message)
-        if sr:
-            system_content += f'\n\n[联网搜索结果]\n{sr}\n\n请基于以上搜索结果回答用户问题，并在回答中引用相关来源。'
 
     messages = [{"role": "system", "content": system_content}]
     max_pairs = 20

@@ -2,6 +2,61 @@
 
 ## 版本更新
 
+### REL2.5.4
+
+**AI 对话模块全面重构 + 用户管理修复增强**
+
+#### 一、AI 对话 UI 全面重构
+
+- **设计语言借鉴 DeepSeek 官网**：
+  - **配色方案**：品牌色 `#3964fe` / `#5686fe`，侧边栏背景 `#f9fafb`，助手气泡 `#edf3fe`，用户气泡 `#f1f3f5`
+  - **字体系统**：Inter 字体栈 + CJK fallback，正文 16px/28px（DeepSeek markdown 标准），侧边栏 13px
+  - **组件样式**：圆形图标按钮 28px、输入框 10px 圆角聚焦蓝色阴影环、发送按钮 32px 圆形品牌色填充
+  - **过渡动画**：统一 `0.2s cubic-bezier(0.4, 0, 0.2, 1)` 缓动曲线
+  - **布局规范**：侧边栏 261px 宽，内容区最大宽度 840px 居中，移动端响应式适配
+  - **阴影层级**：`0 2px 4px rgba(0,0,0,0.05)` 浅阴影、弹出层 `0 8px 24px rgba(0,0,0,0.12)`
+- **移除联网搜索**：
+  - 删除前端"联网搜索"切换控件
+  - 删除后端 `_web_search()` 函数及 `enable_search` 参数
+  - 清理 `tools.html` 中 AI 对话描述文本
+- **深度思考开关优化**：
+  - **功能增强**：前端仅在模型支持思考时发送 `enable_thinking` 字段（true/false），不支持时省略
+  - **参数修正**：后端 `_build_payload()` 改为 `enable_thinking=None` 默认值，None 时不发送 `thinking` 参数
+  - **精确控制**：支持 `thinking: {"type": "enabled"}`（开启）和 `thinking: {"type": "disabled"}`（关闭）
+  - 仅 `enable_thinking=True` 时附带 `reasoning_effort` 参数
+  - 流式端点增加 `stream_options: {"include_usage": true}`
+- **模型预设更新**：
+  - 预设模型改为 `deepseek-v4-flash`（DeepSeek-V4 Flash）和 `deepseek-v4-pro`（DeepSeek-V4 Pro）
+  - 前端 `supportsThinking` 新增 `v4` 关键词匹配，两个 V4 模型均可切换深度思考
+  - 数据库默认模型、配置回退值、前端占位符统一更新
+- **Bug 修复——AI 对话不显示回复**：
+  - **根本原因**：升级用户数据库中缺少 `ai_conversation` 和 `ai_message` 表
+  - **解决方案**：在 `app.py` 的 `run_migrations()` 中添加两张表的自动创建迁移
+- **代码变更清单**：
+  - `templates/ai_chat.html`：全面重写（CSS 变量体系、DOM 结构、Vue 组件样式）
+  - `modules/ai_chat/api.py`：删除 `_web_search()`、新增 `stream_options`、修正 `_build_payload()` 参数逻辑
+  - `app.py`：添加 `ai_conversation` / `ai_message` 表迁移
+  - `models/ai_chat.py`：默认模型更新
+  - `templates/tools.html`：更新 AI 对话入口描述
+
+#### 二、用户管理修复增强
+
+- **账号删除级联清理**：
+  - **问题**：删除用户时因外键约束（`ai_conversation`、`drop_message` 等表）导致删除失败，用户名无法重新注册
+  - **解决方案**：在 `DELETE /api/users` 中先级联删除所有关联数据再删除用户，使用单事务保证一致性
+  - **级联范围**：`ai_conversation`/`ai_message`、`drop_message`/`drop_settings`/`drop_blacklist`、`bili_video_user`、`user_announcement_status`、`drop_read`、`video_access_user`
+- **密码修改 & 退出登录跳转优化**：
+  - **问题**：修改密码或退出所有设备后重定向到 `/logout`，但 session 已失效导致二次跳转
+  - **解决方案**：`board.html` 和 `bili_player.html` 中修改密码和退出所有设备后直接跳转至 `/login`
+- **用户管理表格 ID 隐藏**：
+  - **问题**：用户表格直接暴露数据库自增 ID，缺乏隐私保护
+  - **解决方案**：`templates/user_management.html` 中 `ID` 列改为 `type="index"` 序号列，显示 1-based 序号
+- **代码变更清单**：
+  - `modules/auth/api.py`：重写 DELETE 用户逻辑，添加级联删除
+  - `templates/board.html`：修改密码/退出设备跳转目标改为 `/login`
+  - `templates/bili_player.html`：同上
+  - `templates/user_management.html`：ID 列改为序号列
+
 ### REL2.5.3
 
 **AI 对话功能增强**

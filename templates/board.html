@@ -820,7 +820,7 @@
                                 self.$message.success('密码修改成功，请重新登录');
                                 self.profileDialogVisible = false;
                                 setTimeout(function() {
-                                    window.location.href = '/logout';
+                                    window.location.href = '/login';
                                 }, 1500);
                             }
                         })
@@ -851,10 +851,10 @@
                             if (data.error) {
                                 self.$message.error(data.error);
                             } else {
-                                self.$message.success('已退出所有设备');
+                                self.$message.success('已退出所有设备，即将跳转登录页');
                                 self.profileDialogVisible = false;
                                 setTimeout(function() {
-                                    window.location.href = '/logout';
+                                    window.location.href = '/login';
                                 }, 1000);
                             }
                         })

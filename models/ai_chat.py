@@ -8,7 +8,7 @@ class AiConversation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     title = db.Column(db.String(200), nullable=False, default='新对话')
-    model = db.Column(db.String(100), nullable=False, default='deepseek-chat')
+    model = db.Column(db.String(100), nullable=False, default='deepseek-v4-flash')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))

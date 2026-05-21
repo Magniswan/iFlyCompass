@@ -10,213 +10,591 @@
     <link rel="stylesheet" href="/assets/css/element-ui.css">
     <link rel="stylesheet" href="/assets/css/drop.css">
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f5f6f8; overflow:hidden; }
+        :root {
+            --ds-brand: #3964fe;
+            --ds-brand-light: #edf3fe;
+            --ds-brand-border: #b7c8fe;
+            --ds-brand-hover: #5686fe;
+            --ds-bg-white: #fff;
+            --ds-bg-main: #fff;
+            --ds-bg-sidebar: #f9fafb;
+            --ds-bg-bubble-assistant: #edf3fe;
+            --ds-bg-hover: rgba(38, 49, 72, 0.06);
+            --ds-bg-active: rgba(38, 49, 72, 0.10);
+            --ds-border-l1: rgba(0, 0, 0, 0.04);
+            --ds-border-l2: rgba(0, 0, 0, 0.10);
+            --ds-text-primary: #0f1115;
+            --ds-text-secondary: #61666b;
+            --ds-text-tertiary: #adb2b8;
+            --ds-text-dimmed: #e1e5ee;
+            --ds-input-bg: #f1f3f5;
+            --ds-input-border: transparent;
+            --ds-input-focus-border: #3964fe;
+            --ds-input-radius: 10px;
+            --ds-btn-radius: 4096px;
+            --ds-icon-btn-hover: rgba(38, 49, 72, 0.06);
+            --ds-shadow-lv1: 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+            --ds-shadow-lv2: 0 4px 12px 0 rgba(0, 0, 0, 0.02), 0 2px 8px 0 rgba(0, 0, 0, 0.04);
+            --ds-shadow-popup: 0 8px 24px 0 rgba(0, 0, 0, 0.12);
+            --ds-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+            --ds-font-mono: Menlo, Monaco, Consolas, "Cascadia Mono", "Ubuntu Mono", "DejaVu Sans Mono", "JetBrains Mono", "Fira Code", "Courier New", monospace;
+            --ds-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --ds-transition-fast: 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            --sider-width: 261px;
+            --content-max: 840px;
+            --content-px: 44px;
+        }
 
-        .app-layout { display:flex; height:100vh; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--ds-font-family);
+            font-size: 14px;
+            line-height: 22px;
+            color: var(--ds-text-primary);
+            background: var(--ds-bg-main);
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
-        /* ── Sidebar ── */
-        .history-sidebar {
-            width:260px; min-width:260px; background:#fff; border-right:1px solid #e8e8e8;
-            display:flex; flex-direction:column; height:100vh; transition:all 0.25s ease;
-        }
-        .history-sidebar.collapsed { width:0; min-width:0; overflow:hidden; border-right:none; padding:0; }
-        .history-sidebar .sb-header {
-            padding:14px 16px; border-bottom:1px solid #eee;
-            display:flex; align-items:center; justify-content:space-between;
-        }
-        .history-sidebar .sb-header .back-btn {
-            width:30px; height:30px; border:none; background:transparent; cursor:pointer;
-            font-size:16px; color:#555; border-radius:6px; display:flex; align-items:center; justify-content:center;
-        }
-        .history-sidebar .sb-header .back-btn:hover { background:#f0f0f0; }
-        .history-sidebar .sb-header .sb-title { font-size:15px; font-weight:600; color:#1a1a1a; }
-        .history-sidebar .sb-new-btn {
-            margin:10px 14px; padding:8px 0; border-radius:8px; border:1px dashed #d0d0d0;
-            background:transparent; cursor:pointer; font-size:13px; color:#666;
-            display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.15s;
-        }
-        .history-sidebar .sb-new-btn:hover { border-color:#4f6ef7; color:#4f6ef7; background:#f8f9ff; }
-        .history-sidebar .conv-list { flex:1; overflow-y:auto; padding:4px 8px; }
-        .history-sidebar .conv-list::-webkit-scrollbar { width:3px; }
-        .history-sidebar .conv-list::-webkit-scrollbar-thumb { background:#d0d0d0; border-radius:2px; }
+        .app-layout { display: flex; height: 100vh; position: relative; }
 
-        .conv-item {
-            padding:10px 12px; border-radius:8px; cursor:pointer; margin-bottom:2px;
-            display:flex; align-items:center; justify-content:space-between; transition:background 0.12s;
+        /* ═══════ SIDEBAR ═══════ */
+        .sidebar {
+            width: var(--sider-width);
+            min-width: var(--sider-width);
+            background: var(--ds-bg-sidebar);
+            border-right: 1px solid var(--ds-border-l1);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
         }
-        .conv-item:hover { background:#f5f6f8; }
-        .conv-item.active { background:#eef0ff; }
-        .conv-item .conv-info { flex:1; min-width:0; }
-        .conv-item .conv-title { font-size:13px; color:#1a1a1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .conv-item .conv-meta { font-size:11px; color:#999; margin-top:2px; }
-        .conv-item .conv-del {
-            width:26px; height:26px; border-radius:4px; border:none; background:transparent;
-            cursor:pointer; font-size:13px; color:#bbb; flex-shrink:0; display:none;
-            align-items:center; justify-content:center;
+        .sidebar.collapsed {
+            width: 0;
+            min-width: 0;
+            overflow: hidden;
+            border-right: none;
+            opacity: 0;
         }
-        .conv-item:hover .conv-del { display:flex; }
-        .conv-item .conv-del:hover { color:#ff4d4f; background:#fff1f0; }
 
-        /* ── Main Chat ── */
-        .main-chat { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 12px 12px 16px;
+            min-height: 48px;
+        }
+        .sidebar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--ds-text-primary);
+        }
+        .sidebar-back {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            color: var(--ds-text-secondary);
+            transition: background-color var(--ds-transition-fast);
+        }
+        .sidebar-back:hover { background: var(--ds-bg-hover); color: var(--ds-text-primary); }
+
+        .sidebar-new-btn {
+            margin: 8px 12px;
+            padding: 8px 0;
+            border-radius: 8px;
+            border: 1.5px dashed var(--ds-text-dimmed);
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 20px;
+            color: var(--ds-text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all var(--ds-transition);
+            font-family: inherit;
+        }
+        .sidebar-new-btn:hover {
+            border-color: var(--ds-brand);
+            color: var(--ds-brand);
+            background: var(--ds-brand-light);
+        }
+
+        .sidebar-conv-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 8px;
+            scrollbar-width: none;
+        }
+        .sidebar-conv-list::-webkit-scrollbar { width: 4px; }
+        .sidebar-conv-list::-webkit-scrollbar-thumb { background: var(--ds-text-dimmed); border-radius: 2px; }
+        .sidebar-conv-list::-webkit-scrollbar-thumb:hover { background: var(--ds-text-tertiary); }
+
+        .sidebar-conv-item {
+            padding: 9px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background var(--ds-transition-fast);
+        }
+        .sidebar-conv-item:hover { background: var(--ds-bg-hover); }
+        .sidebar-conv-item.active { background: rgba(57, 100, 254, 0.08); }
+        .sidebar-conv-item .conv-info { flex: 1; min-width: 0; }
+        .sidebar-conv-item .conv-title {
+            font-size: 13px;
+            color: var(--ds-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-conv-item.active .conv-title { color: var(--ds-brand); font-weight: 600; }
+        .sidebar-conv-item .conv-meta { font-size: 11px; color: var(--ds-text-tertiary); margin-top: 2px; }
+        .sidebar-conv-item .conv-del {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--ds-text-tertiary);
+            flex-shrink: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--ds-transition-fast);
+        }
+        .sidebar-conv-item:hover .conv-del { display: flex; }
+        .sidebar-conv-item .conv-del:hover { color: #f25a5a; background: rgba(242, 90, 90, 0.08); }
+
+        .sidebar-empty {
+            text-align: center;
+            padding: 40px 20px;
+            font-size: 13px;
+            color: var(--ds-text-tertiary);
+        }
+
+        /* ═══════ MAIN CHAT ═══════ */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: var(--ds-bg-white);
+        }
 
         .top-bar {
-            display:flex; align-items:center; justify-content:space-between;
-            height:48px; padding:0 16px; background:#fff; border-bottom:1px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 48px;
+            padding: 0 16px;
+            background: var(--ds-bg-white);
+            border-bottom: 1px solid var(--ds-border-l1);
+            flex-shrink: 0;
         }
-        .top-bar .bar-left { display:flex; align-items:center; gap:10px; }
-        .sidebar-toggle-btn {
-            width:30px; height:30px; border-radius:6px; cursor:pointer;
-            display:flex; align-items:center; justify-content:center;
-            font-size:16px; color:#666; transition:all 0.12s;
+        .top-bar-left { display: flex; align-items: center; gap: 8px; }
+        .top-bar-right { display: flex; align-items: center; gap: 6px; }
+
+        .icon-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: var(--ds-text-secondary);
+            transition: background-color var(--ds-transition-fast);
+            flex-shrink: 0;
         }
-        .sidebar-toggle-btn:hover { background:#f0f0f0; color:#4f6ef7; }
-        .top-bar .bar-title { font-size:15px; font-weight:600; color:#1a1a1a; }
-        .top-bar .bar-right { display:flex; align-items:center; gap:8px; }
+        .icon-btn:hover { background: var(--ds-icon-btn-hover); color: var(--ds-text-primary); }
+        .icon-btn:active { background: var(--ds-bg-active); }
 
-        .model-selector {
-            display:flex; align-items:center; gap:4px; padding:4px 10px;
-            border-radius:6px; cursor:pointer; font-size:12px; color:#333;
-            border:1px solid #e0e0e0; background:#fff; max-width:160px;
+        .brand-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 4096px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ds-brand);
+            background: var(--ds-brand-light);
+            border: 1px solid var(--ds-brand-border);
+            cursor: pointer;
+            transition: all var(--ds-transition-fast);
+            font-family: inherit;
+            white-space: nowrap;
         }
-        .model-selector:hover { border-color:#4f6ef7; }
-        .model-selector .model-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .model-selector i { font-size:11px; color:#999; flex-shrink:0; }
+        .brand-badge:hover { background: #e4edfd; }
+        .brand-badge .badge-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+        .brand-badge .badge-arrow { font-size: 11px; }
 
-        .user-btn {
-            display:flex; align-items:center; gap:4px; padding:5px 10px;
-            border-radius:6px; cursor:pointer; font-size:12px; color:#555;
-            border:1px solid #e0e0e0; background:#fff;
+        .brand-badge.user-badge {
+            color: var(--ds-text-secondary);
+            background: transparent;
+            border: 1px solid var(--ds-border-l2);
         }
-        .user-btn:hover { background:#f5f5f5; }
+        .brand-badge.user-badge:hover { background: var(--ds-bg-hover); }
 
-        .chat-messages { flex:1; overflow-y:auto; padding:20px 16px; scroll-behavior:smooth; }
-        .chat-messages::-webkit-scrollbar { width:4px; }
-        .chat-messages::-webkit-scrollbar-thumb { background:#d0d0d0; border-radius:2px; }
-
-        .welcome-area { text-align:center; padding:80px 20px 40px; }
-        .welcome-area .wl-logo {
-            width:60px; height:60px; margin:0 auto 16px;
-            background:linear-gradient(135deg,#4f6ef7,#6c5ce7); border-radius:14px;
-            display:flex; align-items:center; justify-content:center; font-size:26px; color:#fff;
+        /* ═══════ CHAT MESSAGES ═══════ */
+        .chat-body {
+            flex: 1;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: none;
         }
-        .welcome-area h2 { font-size:20px; color:#1a1a1a; margin-bottom:6px; }
-        .welcome-area p { font-size:13px; color:#999; }
+        .chat-body::-webkit-scrollbar { width: 5px; }
+        .chat-body::-webkit-scrollbar-thumb { background: var(--ds-text-dimmed); border-radius: 3px; }
+        .chat-body::-webkit-scrollbar-thumb:hover { background: var(--ds-text-tertiary); }
 
-        .msg-row { display:flex; margin-bottom:20px; gap:8px; }
-        .msg-row.user { flex-direction:row-reverse; }
+        .chat-inner {
+            max-width: var(--content-max);
+            margin: 0 auto;
+            padding: 0 var(--content-px);
+        }
+
+        .welcome-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 80px 20px 40px;
+            max-width: var(--content-max);
+            margin: 0 auto;
+        }
+        .welcome-logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #3964fe, #5686fe);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: #fff;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(57, 100, 254, 0.25);
+        }
+        .welcome-area h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--ds-text-primary);
+            margin-bottom: 8px;
+            line-height: 32px;
+        }
+        .welcome-area p {
+            font-size: 14px;
+            color: var(--ds-text-secondary);
+            line-height: 22px;
+        }
+
+        /* Message row */
+        .msg-row {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            min-height: 60px;
+        }
+        .msg-row.user { flex-direction: row-reverse; }
+
         .msg-avatar {
-            width:32px; height:32px; border-radius:8px; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center; font-size:15px;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
         }
-        .msg-row.assistant .msg-avatar { background:#eef0ff; color:#4f6ef7; }
-        .msg-row.user .msg-avatar { background:#e8f4fd; color:#409EFF; }
+        .msg-row.assistant .msg-avatar {
+            background: var(--ds-brand-light);
+            color: var(--ds-brand);
+        }
+        .msg-row.user .msg-avatar {
+            background: #e8f4fd;
+            color: #409EFF;
+        }
+
+        .msg-body { max-width: calc(100% - 42px); min-width: 0; }
+
         .msg-bubble {
-            max-width:82%; padding:9px 13px; border-radius:10px;
-            font-size:13px; line-height:1.65; word-break:break-word;
+            font-size: 16px;
+            line-height: 28px;
+            word-break: break-word;
         }
-        .msg-row.user .msg-bubble { background:#409EFF; color:#fff; border-bottom-right-radius:3px; }
-        .msg-row.assistant .msg-bubble { background:#fff; color:#1a1a1a; border-bottom-left-radius:3px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
-        .msg-bubble pre { background:rgba(0,0,0,0.05); border-radius:6px; padding:10px; overflow-x:auto; margin:6px 0; font-size:12px; }
-        .msg-row.user .msg-bubble pre { background:rgba(255,255,255,0.2); }
-        .msg-bubble code { font-family:'Consolas','Monaco',monospace; font-size:12px; }
-        .msg-bubble p { margin:0 0 5px; }
-        .msg-bubble p:last-child { margin-bottom:0; }
-        .msg-bubble ul,.msg-bubble ol { margin:5px 0; padding-left:18px; }
+        .msg-row.user .msg-bubble {
+            color: var(--ds-text-primary);
+            background: #f1f3f5;
+            padding: 10px 16px;
+            border-radius: 14px 6px 14px 14px;
+        }
+        .msg-row.assistant .msg-bubble {
+            color: var(--ds-text-primary);
+        }
 
-        .typing-dots { display:flex; gap:3px; padding:3px 0; }
-        .typing-dots span { width:6px; height:6px; border-radius:50%; background:#b0b0b0; animation:db 1.2s infinite ease-in-out; }
-        .typing-dots span:nth-child(2) { animation-delay:0.18s; }
-        .typing-dots span:nth-child(3) { animation-delay:0.36s; }
-        @keyframes db { 0%,60%,100%{transform:translateY(0);opacity:0.3;} 30%{transform:translateY(-5px);opacity:1;} }
+        /* Markdown within messages */
+        .msg-bubble h1 { font-size: 24px; font-weight: 700; line-height: 34px; margin: 18px 0 8px; }
+        .msg-bubble h2 { font-size: 22px; font-weight: 700; line-height: 32px; margin: 16px 0 8px; }
+        .msg-bubble h3 { font-size: 20px; font-weight: 700; line-height: 30px; margin: 14px 0 6px; }
+        .msg-bubble h4 { font-size: 18px; font-weight: 600; line-height: 28px; margin: 12px 0 6px; }
+        .msg-bubble p { margin: 0 0 12px; }
+        .msg-bubble p:last-child { margin-bottom: 0; }
+        .msg-bubble ul, .msg-bubble ol { margin: 8px 0; padding-left: 24px; }
+        .msg-bubble li { margin-bottom: 4px; }
 
-        .chat-input-area { padding:10px 16px 14px; background:#fff; border-top:1px solid #eee; }
-        .input-row {
-            display:flex; align-items:flex-end; gap:8px;
-            background:#f5f6f8; border-radius:10px; padding:7px 10px;
-            border:1px solid transparent; transition:border-color 0.2s;
+        .msg-bubble pre {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-family: var(--ds-font-mono);
+            font-size: 13px;
+            line-height: 22px;
         }
-        .input-row:focus-within { border-color:#4f6ef7; background:#fff; }
-        .input-row textarea {
-            flex:1; border:none; outline:none; resize:none; font-size:13px;
-            line-height:1.55; background:transparent; font-family:inherit;
-            max-height:140px; min-height:26px;
+        .msg-bubble code {
+            font-family: var(--ds-font-mono);
+            font-size: 13px;
+            background: #ebeef2;
+            border-radius: 4px;
+            padding: 1px 5px;
         }
-        .input-row textarea::placeholder { color:#bbb; }
-        .send-btn {
-            width:34px; height:34px; border-radius:8px; border:none; cursor:pointer;
-            display:flex; align-items:center; justify-content:center; font-size:16px;
-            flex-shrink:0; background:#e0e3ff; color:#4f6ef7; transition:all 0.15s;
+        .msg-bubble pre code {
+            background: transparent;
+            padding: 0;
+            border-radius: 0;
         }
-        .send-btn:hover { background:#4f6ef7; color:#fff; }
-        .send-btn:disabled { background:#e8e8e8; color:#bbb; cursor:not-allowed; }
+        .msg-row.user .msg-bubble pre { background: rgba(0, 0, 0, 0.08); }
+        .msg-row.user .msg-bubble code { background: rgba(0, 0, 0, 0.12); }
 
-        .toggle-row { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
-        .toggle-chip {
-            display:flex; align-items:center; gap:4px; padding:4px 10px;
-            border-radius:14px; font-size:11px; cursor:pointer; border:1px solid #dcdcdc;
-            background:#fff; color:#666; transition:all 0.12s; user-select:none;
+        /* Thinking section */
+        .thinking-wrap {
+            background: #fef5e7;
+            border-left: 3px solid #dd8629;
+            padding: 9px 14px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 10px;
+            font-size: 13px;
+            line-height: 20px;
+            color: #92400e;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            scrollbar-width: none;
         }
-        .toggle-chip:hover { border-color:#4f6ef7; color:#4f6ef7; }
-        .toggle-chip.active { background:#eef0ff; border-color:#4f6ef7; color:#4f6ef7; }
-        .toggle-chip.disabled { opacity:0.4; cursor:not-allowed; }
-        .toggle-chip.disabled:hover { border-color:#dcdcdc; color:#666; }
-        .toggle-chip i { font-size:13px; }
-        .refresh-models-btn { font-size:11px; color:#999; cursor:pointer; margin-left:auto; }
-        .refresh-models-btn:hover { color:#4f6ef7; }
+        .thinking-wrap::-webkit-scrollbar { width: 3px; }
+        .thinking-wrap::-webkit-scrollbar-thumb { background: #dd862955; border-radius: 2px; }
+        .thinking-wrap .think-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+        .thinking-wrap .think-text { flex: 1; word-break: break-word; }
 
-        .settings-btn {
-            width:30px; height:30px; border-radius:6px; border:none; background:transparent;
-            cursor:pointer; font-size:15px; color:#999; display:flex; align-items:center; justify-content:center;
-        }
-        .settings-btn:hover { background:#f0f0f0; color:#4f6ef7; }
-
-        .thinking-section {
-            background:#fdf6ec; border-left:3px solid #e6a23c; padding:8px 12px;
-            border-radius:0 6px 6px 0; margin-bottom:8px; font-size:12px; color:#8c6d2f;
-            display:flex; align-items:flex-start; gap:6px;
-        }
-        .thinking-section i { font-size:14px; flex-shrink:0; margin-top:1px; }
-        .thinking-content { flex:1; word-break:break-word; max-height:200px; overflow-y:auto; }
-
-        /* ── Typing Cursor Animation ── */
+        /* Typing cursor */
         .typing-cursor {
-            display:inline-block;
-            width:2px;
-            height:1.1em;
-            background-color:#4f6ef7;
-            margin-left:2px;
-            vertical-align:text-bottom;
-            animation:cursorBlink 0.8s infinite;
-            border-radius:1px;
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: var(--ds-brand);
+            margin-left: 2px;
+            vertical-align: text-bottom;
+            animation: cursorBlink 0.8s infinite;
+            border-radius: 1px;
         }
-        @keyframes cursorBlink {
-            0%, 50% { opacity:1; }
-            51%, 100% { opacity:0; }
+        @keyframes cursorBlink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+        /* Loading dots */
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+            padding: 6px 0;
+        }
+        .typing-dots span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--ds-text-tertiary);
+            animation: dotBounce 1.2s infinite ease-in-out;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.18s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.36s; }
+        @keyframes dotBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+            30% { transform: translateY(-6px); opacity: 1; }
         }
 
-        .msg-bubble.streaming .typing-cursor {
-            background-color:#4f6ef7;
+        /* ═══════ INPUT AREA ═══════ */
+        .chat-footer {
+            flex-shrink: 0;
+            padding: 8px var(--content-px) 16px;
+            max-width: var(--content-max);
+            margin: 0 auto;
+            width: 100%;
         }
+        .input-container {
+            background: var(--ds-input-bg);
+            border-radius: var(--ds-input-radius);
+            border: 1.5px solid var(--ds-input-border);
+            transition: all var(--ds-transition);
+            overflow: hidden;
+            box-shadow: none;
+        }
+        .input-container:focus-within {
+            background: var(--ds-bg-white);
+            border-color: var(--ds-input-focus-border);
+            box-shadow: 0 0 0 3px rgba(57, 100, 254, 0.12);
+        }
+        .input-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            padding: 7px 12px;
+        }
+        .input-row textarea {
+            flex: 1;
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 14px;
+            line-height: 22px;
+            background: transparent;
+            font-family: inherit;
+            color: var(--ds-text-primary);
+            max-height: 160px;
+            min-height: 26px;
+            padding: 2px 0;
+        }
+        .input-row textarea::placeholder { color: var(--ds-text-tertiary); }
+
+        .send-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+            background: var(--ds-brand);
+            color: #fff;
+            transition: all var(--ds-transition-fast);
+            box-shadow: 0 2px 6px rgba(57, 100, 254, 0.3);
+        }
+        .send-btn:hover { background: var(--ds-brand-hover); transform: scale(1.06); }
+        .send-btn:active { transform: scale(0.94); }
+        .send-btn:disabled {
+            background: var(--ds-text-dimmed);
+            color: var(--ds-text-tertiary);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .send-btn:disabled:hover { transform: none; }
+
+        .input-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 12px 8px;
+        }
+        .footer-left { display: flex; align-items: center; gap: 4px; }
+        .footer-right { display: flex; align-items: center; }
+
+        .think-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: var(--ds-btn-radius);
+            border: 1px solid transparent;
+            background: transparent;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--ds-text-secondary);
+            font-family: inherit;
+            font-weight: 500;
+            transition: all var(--ds-transition-fast);
+            user-select: none;
+        }
+        .think-btn:hover { background: var(--ds-bg-hover); color: var(--ds-text-primary); }
+        .think-btn.on { background: var(--ds-brand-light); border-color: var(--ds-brand-border); color: var(--ds-brand); }
+        .think-btn.off { opacity: 0.35; cursor: not-allowed; }
+        .think-btn.off:hover { background: transparent; color: var(--ds-text-secondary); }
+
+        .char-count {
+            font-size: 11px;
+            color: var(--ds-text-tertiary);
+        }
+
+        /* ═══════ POPOVER / DROPDOWN STYLES (override Element UI) ═══════ */
+        .model-pop-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: background var(--ds-transition-fast);
+        }
+        .model-pop-item:first-child { border-radius: 8px 8px 0 0; }
+        .model-pop-item:last-child { border-radius: 0 0 8px 8px; }
+        .model-pop-item:only-child { border-radius: 8px; }
+        .model-pop-item:hover { background: var(--ds-bg-hover); }
+        .model-pop-item.selected { background: var(--ds-brand-light); }
+        .model-pop-item .pop-item-name { font-size: 13px; font-weight: 600; color: var(--ds-text-primary); }
+        .model-pop-item .pop-item-desc { font-size: 11px; color: var(--ds-text-secondary); margin-top: 2px; }
+
+        /* ═══════ RESPONSIVE ═══════ */
+        @media (max-width: 768px) {
+            :root { --content-px: 20px; --sider-width: 0; }
+            .sidebar { position: fixed; left: 0; top: 0; bottom: 0; box-shadow: var(--ds-shadow-popup); }
+            .sidebar.collapsed { width: 0; min-width: 0; }
+            .sidebar:not(.collapsed) { width: 280px; min-width: 280px; opacity: 1; z-index: 100; }
+        }
+
+        /* Override Element UI dialog close button */
+        .el-dialog__headerbtn { top: 16px; right: 16px; }
+        .el-dialog__headerbtn .el-dialog__close { font-size: 18px; color: var(--ds-text-secondary); }
     </style>
 </head>
 <body>
     <div id="loading-overlay"><div class="loading-spinner"></div><div class="loading-text">加载中...</div></div>
+
     <div id="app">
         <div class="app-layout">
-            <!-- History Sidebar -->
-            <div class="history-sidebar" :class="{ collapsed: !sidebarVisible }">
-                <div class="sb-header">
-                    <span class="sb-title">对话历史</span>
-                    <button class="back-btn" @click="goBack" title="返回"><i class="el-icon-arrow-left"></i></button>
+
+            <!-- ═══════ SIDEBAR ═══════ -->
+            <nav class="sidebar" :class="{ collapsed: !sidebarVisible }">
+                <div class="sidebar-header">
+                    <span class="sidebar-title">对话</span>
+                    <button class="sidebar-back" @click="goBack" title="返回">
+                        <i class="el-icon-arrow-left"></i>
+                    </button>
                 </div>
-                <button class="sb-new-btn" @click="newConversation">
-                    <i class="el-icon-plus"></i> 新对话
+                <button class="sidebar-new-btn" @click="newConversation">
+                    <i class="el-icon-plus" style="font-size:14px;"></i>
+                    新对话
                 </button>
-                <div class="conv-list">
+                <div class="sidebar-conv-list" ref="convList">
                     <div v-for="c in conversations" :key="c.id"
-                         class="conv-item" :class="{ active: currentConvId === c.id }"
+                         class="sidebar-conv-item"
+                         :class="{ active: currentConvId === c.id }"
                          @click="selectConversation(c.id)">
                         <div class="conv-info">
                             <div class="conv-title">[[ c.title ]]</div>
@@ -226,130 +604,178 @@
                             <i class="el-icon-delete"></i>
                         </button>
                     </div>
-                    <div v-if="conversations.length === 0" style="text-align:center;color:#bbb;font-size:12px;padding:30px 0;">
-                        暂无对话记录
+                    <div class="sidebar-empty" v-if="conversations.length === 0">
+                        暂无对话<br><span style="font-size:11px;">点击上方按钮开始</span>
                     </div>
                 </div>
-            </div>
+            </nav>
 
-            <!-- Main Chat -->
-            <div class="main-chat">
-                <div class="top-bar">
-                    <div class="bar-left">
-                        <span class="sidebar-toggle-btn" @click="sidebarVisible = !sidebarVisible" title="切换历史栏">
+            <!-- ═══════ MAIN CHAT ═══════ -->
+            <main class="main-chat">
+
+                <!-- Top Bar -->
+                <header class="top-bar">
+                    <div class="top-bar-left">
+                        <button class="icon-btn" @click="sidebarVisible = !sidebarVisible" title="切换侧栏">
                             <i :class="sidebarVisible ? 'el-icon-s-fold' : 'el-icon-s-unfold'"></i>
-                        </span>
-                        <span class="bar-title">AI 对话</span>
-                        <el-popover placement="bottom-start" trigger="click" width="220">
+                        </button>
+
+                        <!-- Model Selector -->
+                        <el-popover placement="bottom-start" trigger="click" width="260" popper-class="model-popover">
                             <div v-for="m in models" :key="m.id"
-                                 style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;"
-                                 :style="{ background: selectedModel === m.id ? '#eef0ff' : '' }"
+                                 class="model-pop-item"
+                                 :class="{ selected: selectedModel === m.id }"
                                  @click="selectModel(m.id)">
-                                <div style="font-size:13px;font-weight:500;">[[ m.name ]]</div>
-                                <div style="font-size:11px;color:#999;">[[ m.description ]]</div>
+                                <div class="pop-item-name">[[ m.name ]]</div>
+                                <div class="pop-item-desc">[[ m.description ]]</div>
                             </div>
-                            <div slot="reference" class="model-selector">
-                                <span class="model-name">[[ selectedModelName ]]</span>
-                                <i class="el-icon-arrow-down"></i>
-                            </div>
+                            <el-button slot="reference" class="brand-badge" style="font-family:inherit;font-weight:500;">
+                                <span class="badge-name">[[ selectedModelName ]]</span>
+                                <i class="badge-arrow el-icon-arrow-down"></i>
+                            </el-button>
                         </el-popover>
                     </div>
-                    <div class="bar-right">
-                        <button class="settings-btn" v-if="isAdmin" @click="showSettings = true" title="AI 设置">
+
+                    <div class="top-bar-right">
+                        <button class="icon-btn" v-if="isAdmin" @click="showSettings = true" title="AI 设置">
                             <i class="el-icon-setting"></i>
                         </button>
-                        <span class="refresh-models-btn" @click="refreshModels" title="刷新模型列表">
+                        <button class="icon-btn" @click="refreshModels" title="刷新模型列表">
                             <i class="el-icon-refresh"></i>
-                        </span>
-                        <el-popover placement="bottom-end" trigger="click" width="180">
-                            <div style="padding:6px 0;">
-                                <div style="padding:7px 12px;font-weight:600;">[[ displayName ]]</div>
-                                <div style="padding:0 12px 6px;font-size:11px;color:#999;">@[[ username ]]</div>
-                                <div style="height:1px;background:#eee;margin:3px 0;"></div>
-                                <div style="padding:7px 12px;cursor:pointer;" @click="goBack"><i class="el-icon-s-home"></i> 返回小工具</div>
-                                <div style="padding:7px 12px;cursor:pointer;color:#ff4d4f;" @click="confirmLogout"><i class="el-icon-switch-button"></i> 退出登录</div>
+                        </button>
+
+                        <!-- User Menu -->
+                        <el-popover placement="bottom-end" trigger="click" width="180" popper-class="user-popover">
+                            <div style="padding: 6px 0;">
+                                <div style="padding: 6px 14px; font-weight: 600; font-size: 14px;">[[ displayName ]]</div>
+                                <div style="padding: 0 14px 6px; font-size: 11px; color: var(--ds-text-tertiary);">@[[ username ]]</div>
+                                <div style="height: 1px; background: var(--ds-border-l1); margin: 4px 0;"></div>
+                                <div style="padding: 8px 14px; cursor: pointer; font-size: 13px;" @click="goBack">
+                                    <i class="el-icon-s-home" style="margin-right:6px;"></i>返回小工具
+                                </div>
+                                <div style="padding: 8px 14px; cursor: pointer; font-size: 13px; color: #f25a5a;" @click="confirmLogout">
+                                    <i class="el-icon-switch-button" style="margin-right:6px;"></i>退出登录
+                                </div>
                             </div>
-                            <div slot="reference" class="user-btn"><i class="el-icon-user"></i> [[ displayName ]]</div>
+                            <el-button slot="reference" class="brand-badge user-badge" style="font-family:inherit;font-weight:500;">
+                                <i class="el-icon-user" style="font-size:13px;"></i>
+                                <span>[[ displayName ]]</span>
+                            </el-button>
                         </el-popover>
                     </div>
-                </div>
+                </header>
 
-                <div class="chat-messages" ref="msgContainer">
+                <!-- Chat Messages -->
+                <div class="chat-body" ref="msgContainer">
                     <div v-if="messages.length === 0 && !isLoading" class="welcome-area">
-                        <div class="wl-logo"><i class="el-icon-cpu"></i></div>
-                        <h2>你好，我是 AI 助手</h2>
-                        <p>有什么可以帮助你的？</p>
+                        <div class="welcome-logo"><i class="el-icon-cpu"></i></div>
+                        <h2>有什么可以帮助你的？</h2>
+                        <p>我是 AI 助手，可以帮你解答问题、编写代码、创作内容</p>
                     </div>
-                    <div v-for="(msg,idx) in messages" :key="idx" :class="['msg-row', msg.role]">
-                        <div class="msg-avatar"><i v-if="msg.role==='assistant'" class="el-icon-cpu"></i><i v-else class="el-icon-user"></i></div>
-                        <div style="max-width:82%;">
-                            <div v-if="msg.thinking" class="thinking-section">
-                                <i class="el-icon-view"></i>
-                                <div class="thinking-content">[[ msg.thinking ]]</div>
+
+                    <div class="chat-inner" v-if="messages.length > 0">
+                        <div v-for="(msg, idx) in messages" :key="idx"
+                             :class="['msg-row', msg.role]">
+                            <div class="msg-avatar">
+                                <i v-if="msg.role === 'assistant'" class="el-icon-cpu"></i>
+                                <i v-else class="el-icon-user"></i>
                             </div>
-                            <div v-if="msg.content" :class="['msg-bubble', { streaming: isStreamingIndex(idx) }]" v-html="renderMd(msg.content) + (isStreamingIndex(idx) ? '<span class=\"typing-cursor\"></span>' : '')"></div>
+                            <div class="msg-body">
+                                <!-- Thinking content -->
+                                <div v-if="msg.thinking" class="thinking-wrap">
+                                    <span class="think-icon"><i class="el-icon-view"></i></span>
+                                    <span class="think-text">[[ msg.thinking ]]</span>
+                                </div>
+                                <!-- Main content -->
+                                <div v-if="msg.content"
+                                     class="msg-bubble"
+                                     v-html="renderMd(msg.content) + (isStreamingIndex(idx) ? '<span class=&quot;typing-cursor&quot;></span>' : '')">
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div v-if="isLoading" class="msg-row assistant">
-                        <div class="msg-avatar"><i class="el-icon-cpu"></i></div>
-                        <div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+
+                        <!-- Initial loading -->
+                        <div v-if="isLoading && messages.length === 0" class="msg-row assistant">
+                            <div class="msg-avatar"><i class="el-icon-cpu"></i></div>
+                            <div class="msg-body">
+                                <div class="msg-bubble">
+                                    <div class="typing-dots"><span></span><span></span><span></span></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="chat-input-area">
-                    <div class="input-row">
-                        <textarea ref="inputEl" v-model="inputMessage"
-                            placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-                            @keydown="handleKeydown" :disabled="isLoading" rows="1"></textarea>
-                        <button class="send-btn" @click="sendMessage" :disabled="isLoading || !inputMessage.trim()">
-                            <i v-if="!isLoading" class="el-icon-position"></i>
-                            <i v-else class="el-icon-loading"></i>
-                        </button>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-chip" :class="{active:enableSearch}" @click="enableSearch=!enableSearch">
-                            <i class="el-icon-search"></i> 联网搜索
+                <!-- Chat Input -->
+                <div class="chat-footer">
+                    <div class="input-container">
+                        <div class="input-row">
+                            <textarea ref="inputEl"
+                                v-model="inputMessage"
+                                placeholder="给 AI 发送消息"
+                                @keydown="handleKeydown"
+                                :disabled="isLoading"
+                                rows="1"></textarea>
+                            <button class="send-btn"
+                                @click="sendMessage"
+                                :disabled="isLoading || !inputMessage.trim()"
+                                title="发送">
+                                <i v-if="!isLoading" class="el-icon-position"></i>
+                                <i v-else class="el-icon-loading"></i>
+                            </button>
                         </div>
-                        <div class="toggle-chip" :class="{active:enableThinking,disabled:!supportsThinking}" 
-                             @click="supportsThinking && (enableThinking=!enableThinking)"
-                             :title="supportsThinking ? '启用深度思考模式' : '当前模型不支持思考功能'">
-                            <i class="el-icon-view"></i> 深度思考
+                        <div class="input-footer">
+                            <div class="footer-left">
+                                <button class="think-btn"
+                                    :class="{ on: enableThinking, off: !supportsThinking }"
+                                    @click="supportsThinking && (enableThinking = !enableThinking)"
+                                    :title="supportsThinking ? (enableThinking ? '关闭深度思考' : '开启深度思考') : '当前模型不支持深度思考'">
+                                    <span style="font-size:13px;">🧠</span>
+                                    深度思考
+                                </button>
+                            </div>
+                            <div class="footer-right">
+                                <span class="char-count" v-if="inputMessage.length > 0">[[ inputMessage.length ]] / 4000</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
 
-        <!-- AI Settings Dialog (Admin Only) -->
-        <el-dialog
-            title="AI 设置"
-            :visible.sync="showSettings"
-            width="600px"
-            :close-on-click-modal="false"
-        >
-            <el-form label-width="120px" size="small">
+        <!-- ═══════ SETTINGS DIALOG ═══════ -->
+        <el-dialog title="AI 设置" :visible.sync="showSettings" width="560px" :close-on-click-modal="false">
+            <el-form label-width="110px" size="small">
                 <el-form-item label="API Key">
-                    <el-input v-model="aiConfig.api_key" type="password" show-password placeholder="输入新的 API Key（留空不修改）"></el-input>
-                    <div v-if="aiConfig.has_api_key" style="font-size:11px;color:#999;margin-top:2px;">当前已配置: [[ aiConfig.api_key_masked ]]</div>
+                    <el-input v-model="aiConfig.api_key" type="password" show-password placeholder="留空不修改"></el-input>
+                    <div v-if="aiConfig.has_api_key" style="font-size:11px;color:var(--ds-text-tertiary);margin-top:2px;">
+                        已配置: [[ aiConfig.api_key_masked ]]
+                    </div>
                 </el-form-item>
                 <el-form-item label="API URL">
                     <el-input v-model="aiConfig.api_url" placeholder="https://api.deepseek.com/v1/chat/completions"></el-input>
                 </el-form-item>
                 <el-form-item label="默认模型">
-                    <el-input v-model="aiConfig.model" placeholder="deepseek-chat"></el-input>
+                    <el-input v-model="aiConfig.model" placeholder="deepseek-v4-flash"></el-input>
                 </el-form-item>
                 <el-form-item label="Max Tokens">
                     <el-input-number v-model="aiConfig.max_tokens" :min="100" :max="16384" :step="256"></el-input-number>
                 </el-form-item>
                 <el-form-item label="Temperature">
-                    <el-slider v-model="aiConfig.temperature" :min="0" :max="2" :step="0.1" :marks="{0:'0', 0.5:'0.5', 1:'1', 1.5:'1.5', 2:'2'}" style="width:200px;"></el-slider>
+                    <div style="width:200px;padding-top:6px;">
+                        <el-slider v-model="aiConfig.temperature" :min="0" :max="2" :step="0.1"
+                            :marks="{0:'0',0.5:'0.5',1:'1',1.5:'1.5',2:'2'}"></el-slider>
+                    </div>
                 </el-form-item>
                 <el-form-item label="系统提示词">
-                    <el-input type="textarea" v-model="aiConfig.system_prompt" :rows="3" placeholder="你是一个有用的AI助手，请用中文回答用户的问题。"></el-input>
+                    <el-input type="textarea" v-model="aiConfig.system_prompt" :rows="3"
+                        placeholder="你是一个有用的AI助手，请用中文回答用户的问题。"></el-input>
                 </el-form-item>
-                <el-form-item label="思考功能">
+                <el-form-item label="深度思考">
                     <el-switch v-model="aiConfig.thinking_enabled" active-text="启用" inactive-text="禁用"></el-switch>
-                    <div style="font-size:11px;color:#999;margin-top:2px;">启用后，用户可在对话中开启深度思考模式（仅推理模型支持）</div>
+                    <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:3px;">
+                        启用后用户可在对话中开启深度思考（仅推理模型如 DeepSeek-R1 支持）
+                    </div>
                 </el-form-item>
             </el-form>
             <span slot="footer">
@@ -368,7 +794,7 @@
         new Vue({
             el: '#app',
             delimiters: ['[[', ']]'],
-            data() {
+            data: function() {
                 return {
                     displayName: '{{ current_user.display_name }}',
                     username: '{{ current_user.username }}',
@@ -381,7 +807,6 @@
                     streamingIndex: -1,
                     models: [],
                     selectedModel: '',
-                    enableSearch: false,
                     enableThinking: false,
                     sidebarVisible: true,
                     showSettings: false,
@@ -391,74 +816,75 @@
                         api_url: 'https://api.deepseek.com/v1/chat/completions',
                         api_key_masked: '',
                         has_api_key: false,
-                        model: 'deepseek-chat',
+                        model: 'deepseek-v4-flash',
                         max_tokens: 2048,
                         temperature: 0.7,
-                        system_prompt: '你是一个有用的AI助手，请用中文回答用户的问题。',
+                        system_prompt: '',
                         thinking_enabled: false
                     }
                 };
             },
             computed: {
-                selectedModelName() {
+                selectedModelName: function() {
                     var self = this;
                     var m = this.models.find(function(x) { return x.id === self.selectedModel; });
                     return m ? m.name : '选择模型';
                 },
-                supportsThinking() {
-                    if (!this.aiConfig.thinking_enabled) {
-                        return false;
-                    }
-                    var modelId = this.selectedModel.toLowerCase();
-                    return modelId.includes('reasoner') || 
-                           modelId.includes('r1') || 
-                           modelId.includes('thinking') ||
-                           modelId.includes('o1') ||
-                           modelId.includes('o3');
+                supportsThinking: function() {
+                    if (!this.aiConfig.thinking_enabled) return false;
+                    var mid = this.selectedModel.toLowerCase();
+                    return mid.indexOf('reasoner') >= 0 || mid.indexOf('r1') >= 0 ||
+                           mid.indexOf('thinking') >= 0 || mid.indexOf('o1') >= 0 ||
+                           mid.indexOf('o3') >= 0 || mid.indexOf('v4') >= 0;
                 }
             },
-            async mounted() {
-                await this.loadModels();
-                await this.loadConversations();
-                if (this.conversations.length > 0) {
-                    this.selectConversation(this.conversations[0].id);
+            watch: {
+                supportsThinking: function(val) {
+                    if (!val) this.enableThinking = false;
                 }
-                if (this.isAdmin) {
-                    this.loadAiConfig();
-                }
+            },
+            mounted: function() {
+                var self = this;
+                this.loadModels();
+                this.loadConversations().then(function() {
+                    if (self.conversations.length > 0) {
+                        self.selectConversation(self.conversations[0].id);
+                    }
+                });
+                if (this.isAdmin) this.loadAiConfig();
             },
             methods: {
-                async loadModels() {
+                loadModels: async function() {
                     try {
                         var r = await fetch('/api/ai-chat/models');
                         var d = await r.json();
                         this.models = d.models || [];
-                        this.selectedModel = d.current_model || (this.models[0] && this.models[0].id || '');
+                        this.selectedModel = d.current_model || (this.models[0] && this.models[0].id) || '';
                     } catch(e) { console.error(e); }
                 },
-                async refreshModels() {
+                refreshModels: async function() {
                     try {
                         await fetch('/api/ai-chat/models/refresh', { method: 'POST' });
                         await this.loadModels();
                         this.$message.success('模型列表已刷新');
                     } catch(e) { this.$message.error('刷新失败'); }
                 },
-                selectModel(id) { this.selectedModel = id; },
-                isStreamingIndex(idx) {
-                    return this.streamingIndex === idx;
-                },
-                async loadConversations() {
+                selectModel: function(id) { this.selectedModel = id; },
+                isStreamingIndex: function(idx) { return this.streamingIndex === idx; },
+
+                loadConversations: async function() {
                     try {
                         var r = await fetch('/api/ai-chat/conversations');
                         var d = await r.json();
                         this.conversations = d.conversations || [];
                     } catch(e) { console.error(e); }
                 },
-                async newConversation() {
+
+                newConversation: async function() {
                     try {
                         var r = await fetch('/api/ai-chat/conversations', {
                             method: 'POST',
-                            headers: {'Content-Type':'application/json'},
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ model: this.selectedModel })
                         });
                         var d = await r.json();
@@ -469,26 +895,30 @@
                         }
                     } catch(e) { this.$message.error('创建失败'); }
                 },
-                async selectConversation(id) {
+
+                selectConversation: async function(id) {
                     try {
                         var r = await fetch('/api/ai-chat/conversations/' + id);
                         var d = await r.json();
                         this.currentConvId = id;
                         this.messages = (d.messages || []).map(function(m) {
-                            return { role: m.role, content: m.content };
+                            return { role: m.role, content: m.content, thinking: '' };
                         });
                         if (d.conversation) {
                             this.selectedModel = d.conversation.model || this.selectedModel;
                         }
-                        this.$nextTick(function() { this.scrollToBottom(); }.bind(this));
+                        this.$nextTick(this.scrollToBottom.bind(this));
                     } catch(e) { console.error(e); }
                 },
-                async deleteConversation(id) {
+
+                deleteConversation: function(id) {
                     var self = this;
                     this.$confirm('确定删除这个对话吗？', '提示', {
-                        confirmButtonText:'确定', cancelButtonText:'取消', type:'warning'
-                    }).then(async function() {
-                        await fetch('/api/ai-chat/conversations/' + id, { method:'DELETE' });
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(function() {
+                        fetch('/api/ai-chat/conversations/' + id, { method: 'DELETE' });
                         self.conversations = self.conversations.filter(function(c) { return c.id !== id; });
                         if (self.currentConvId === id) {
                             self.currentConvId = null;
@@ -499,56 +929,70 @@
                         }
                     }).catch(function() {});
                 },
-                goBack() { window.location.href = '/board/tools'; },
-                confirmLogout() {
+
+                goBack: function() { window.location.href = '/board/tools'; },
+
+                confirmLogout: function() {
+                    var self = this;
                     this.$confirm('确定退出登录？', '提示', {
-                        confirmButtonText:'确定', cancelButtonText:'取消', type:'warning'
-                    }).then(function() { window.location.href = '/logout'; }).catch(function() {});
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(function() {
+                        window.location.href = '/logout';
+                    }).catch(function() {});
                 },
-                handleKeydown(e) {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendMessage(); }
+
+                handleKeydown: function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
                 },
-                async sendMessage() {
+
+                sendMessage: async function() {
                     var msg = this.inputMessage.trim();
                     if (!msg || this.isLoading) return;
                     var self = this;
-                    this.messages.push({ role:'user', content:msg });
+
+                    this.messages.push({ role: 'user', content: msg });
                     this.inputMessage = '';
                     this.isLoading = true;
-                    // Add a placeholder for streaming assistant response
-                    this.messages.push({ role:'assistant', content:'', thinking:'' });
-                    var assistantIdx = this.messages.length - 1;
-                    this.streamingIndex = assistantIdx;
-                    this.$nextTick(function() { self.scrollToBottom(); });
+
+                    this.messages.push({ role: 'assistant', content: '', thinking: '' });
+                    var asstIdx = this.messages.length - 1;
+                    this.streamingIndex = asstIdx;
+                    this.$nextTick(this.scrollToBottom.bind(this));
 
                     try {
                         var r = await fetch('/api/ai-chat/stream', {
-                            method:'POST',
-                            headers:{'Content-Type':'application/json'},
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 message: msg,
                                 model: self.selectedModel || undefined,
-                                enable_search: self.enableSearch,
-                                enable_thinking: self.supportsThinking && self.enableThinking,
+                                enable_thinking: self.supportsThinking ? self.enableThinking : undefined,
                                 conversation_id: self.currentConvId || undefined
                             })
                         });
 
                         if (!r.ok) {
-                            var errData = await r.json().catch(function() { return {error: '请求失败 (' + r.status + ')'}; });
+                            var errData = await r.json().catch(function() {
+                                return { error: '请求失败 (' + r.status + ')' };
+                            });
                             self.isLoading = false;
                             self.streamingIndex = -1;
                             self.$message.error(errData.error || '请求失败');
-                            self.messages.pop(); // remove assistant placeholder
-                            self.messages.pop(); // remove user msg
+                            self.messages.pop();
+                            self.messages.pop();
                             return;
                         }
 
                         var reader = r.body.getReader();
                         var decoder = new TextDecoder();
                         var buffer = '';
-                        var fullResponse = '';
-                        var fullThinking = '';
+                        var fullResp = '';
+                        var fullThink = '';
 
                         while (true) {
                             var result = await reader.read();
@@ -556,80 +1000,106 @@
                             buffer += decoder.decode(result.value, { stream: true });
                             var lines = buffer.split('\n');
                             buffer = lines.pop() || '';
+
                             for (var i = 0; i < lines.length; i++) {
                                 var line = lines[i].trim();
-                                if (line.startsWith('data: ')) {
-                                    var ds = line.substring(6);
-                                    if (ds === '[DONE]') continue;
-                                    try {
-                                        var chunk = JSON.parse(ds);
-                                        if (chunk.error) {
-                                            self.isLoading = false;
-                                            self.streamingIndex = -1;
-                                            self.$message.error(chunk.error);
-                                            self.messages.pop(); // remove assistant placeholder
-                                            self.messages.pop(); // remove user msg
-                                            return;
-                                        }
-                                        if (chunk.content) {
-                                            fullResponse += chunk.content;
-                                            self.messages[assistantIdx].content = fullResponse;
-                                            self.$nextTick(function() { self.scrollToBottom(); });
-                                        }
-                                        if (chunk.reasoning_content) {
-                                            fullThinking += chunk.reasoning_content;
-                                            self.messages[assistantIdx].thinking = fullThinking;
-                                            self.$nextTick(function() { self.scrollToBottom(); });
-                                        }
-                                        if (chunk.done) {
-                                            if (chunk.conversation_id && !self.currentConvId) {
-                                                self.currentConvId = chunk.conversation_id;
-                                                self.loadConversations();
-                                            }
-                                        }
-                                        if (chunk.usage) {
-                                            self.messages[assistantIdx].usage = chunk.usage;
-                                        }
-                                    } catch(e) { /* skip malformed JSON */ }
-                                }
+                                if (!line.startsWith('data: ')) continue;
+                                var ds = line.substring(6);
+                                if (ds === '[DONE]') continue;
+
+                                try {
+                                    var chunk = JSON.parse(ds);
+                                    if (chunk.error) {
+                                        self.isLoading = false;
+                                        self.streamingIndex = -1;
+                                        self.$message.error(chunk.error);
+                                        self.messages.pop();
+                                        self.messages.pop();
+                                        return;
+                                    }
+                                    if (chunk.content) {
+                                        fullResp += chunk.content;
+                                        self.messages[asstIdx].content = fullResp;
+                                        self.$nextTick(self.scrollToBottom.bind(self));
+                                    }
+                                    if (chunk.reasoning_content) {
+                                        fullThink += chunk.reasoning_content;
+                                        self.messages[asstIdx].thinking = fullThink;
+                                        self.$nextTick(self.scrollToBottom.bind(self));
+                                    }
+                                    if (chunk.done && chunk.conversation_id && !self.currentConvId) {
+                                        self.currentConvId = chunk.conversation_id;
+                                        self.loadConversations();
+                                    }
+                                    if (chunk.usage) {
+                                        self.messages[asstIdx].usage = chunk.usage;
+                                    }
+                                } catch(e) { /* skip malformed */ }
                             }
                         }
+
                         self.isLoading = false;
                         self.streamingIndex = -1;
-                        if (!self.messages[assistantIdx].content && !self.messages[assistantIdx].thinking) {
-                            self.messages.pop(); // remove empty assistant
+
+                        if (!self.messages[asstIdx].content && !self.messages[asstIdx].thinking) {
+                            self.messages.pop();
                             self.$message.error('AI 未返回内容');
                         }
-                        self.$nextTick(function() { self.scrollToBottom(); });
+                        self.$nextTick(self.scrollToBottom.bind(self));
                     } catch(e) {
                         self.isLoading = false;
                         self.streamingIndex = -1;
                         self.$message.error('请求失败: ' + e.message);
                     }
                 },
-                scrollToBottom() {
+
+                scrollToBottom: function() {
+                    var self = this;
                     this.$nextTick(function() {
-                        var el = this.$refs.msgContainer;
+                        var el = self.$refs.msgContainer;
                         if (el) el.scrollTop = el.scrollHeight;
-                    }.bind(this));
+                    });
                 },
-                renderMd(text) {
+
+                renderMd: function(text) {
                     if (!text) return '';
-                    var h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    h = h.replace(/```(\w*)\n([\s\S]*?)```/g, function(_,lang,code){return'<pre><code>'+code.trim()+'</code></pre>';});
-                    h = h.replace(/`([^`]+)`/g,'<code>$1</code>');
-                    h = h.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-                    h = h.replace(/\*([^*]+)\*/g,'<em>$1</em>');
-                    h = h.replace(/^### (.+)$/gm,'<h4>$1</h4>');
-                    h = h.replace(/^## (.+)$/gm,'<h3>$1</h3>');
-                    h = h.replace(/^# (.+)$/gm,'<h2>$1</h2>');
-                    h = h.replace(/^- (.+)$/gm,'<li>$1</li>');
-                    h = h.replace(/\n\n/g,'</p><p>');
-                    h = h.replace(/\n/g,'<br>');
-                    if (!h.startsWith('<')) h = '<p>'+h+'</p>';
+                    var h = text
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+
+                    h = h.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+                        return '<pre><code>' + code.trim() + '</code></pre>';
+                    });
+                    h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+                    h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                    h = h.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+                    var lines = h.split('\n');
+                    var result = [];
+                    var inCode = false;
+
+                    for (var i = 0; i < lines.length; i++) {
+                        var l = lines[i];
+                        if (l.indexOf('<pre>') >= 0) { inCode = true; result.push(l); continue; }
+                        if (l.indexOf('</pre>') >= 0) { inCode = false; result.push(l); continue; }
+                        if (inCode) { result.push(l); continue; }
+
+                        if (/^#### (.+)$/.test(l)) l = l.replace(/^#### (.+)$/, '<h4>$1</h4>');
+                        else if (/^### (.+)$/.test(l)) l = l.replace(/^### (.+)$/, '<h3>$1</h3>');
+                        else if (/^## (.+)$/.test(l)) l = l.replace(/^## (.+)$/, '<h2>$1</h2>');
+                        else if (/^# (.+)$/.test(l)) l = l.replace(/^# (.+)$/, '<h1>$1</h1>');
+                        else if (/^- (.+)$/.test(l)) l = l.replace(/^- (.+)$/, '<li>$1</li>');
+                        else if (l === '') l = '<br>';
+                        result.push(l);
+                    }
+
+                    h = result.join('\n');
+                    h = h.replace(/([^>])\n([^<])/g, '$1<br>$2');
                     return h;
                 },
-                async loadAiConfig() {
+
+                loadAiConfig: async function() {
                     try {
                         var r = await fetch('/api/ai-chat/config');
                         var d = await r.json();
@@ -637,16 +1107,17 @@
                             this.aiConfig.api_url = d.api_url || 'https://api.deepseek.com/v1/chat/completions';
                             this.aiConfig.api_key_masked = d.api_key_masked || '';
                             this.aiConfig.has_api_key = d.has_api_key || false;
-                            this.aiConfig.model = d.model || 'deepseek-chat';
+                            this.aiConfig.model = d.model || 'deepseek-v4-flash';
                             this.aiConfig.max_tokens = d.max_tokens || 2048;
                             this.aiConfig.temperature = d.temperature || 0.7;
-                            this.aiConfig.system_prompt = d.system_prompt || '你是一个有用的AI助手，请用中文回答用户的问题。';
+                            this.aiConfig.system_prompt = d.system_prompt || '';
                             this.aiConfig.thinking_enabled = d.thinking_enabled || false;
                             this.aiConfig.api_key = '';
                         }
-                    } catch(e) { console.error('加载AI配置失败:', e); }
+                    } catch(e) { console.error(e); }
                 },
-                async saveAiConfig() {
+
+                saveAiConfig: async function() {
                     this.aiSaving = true;
                     var self = this;
                     try {
@@ -658,12 +1129,13 @@
                             system_prompt: this.aiConfig.system_prompt,
                             thinking_enabled: this.aiConfig.thinking_enabled
                         };
-                        if (this.aiConfig.api_key && this.aiConfig.api_key.trim() && this.aiConfig.api_key.indexOf('****') === -1) {
+                        if (this.aiConfig.api_key && this.aiConfig.api_key.trim() &&
+                            this.aiConfig.api_key.indexOf('****') === -1) {
                             payload.api_key = this.aiConfig.api_key.trim();
                         }
                         var r = await fetch('/api/ai-chat/config', {
                             method: 'PUT',
-                            headers: {'Content-Type': 'application/json'},
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
                         });
                         var d = await r.json();
@@ -671,7 +1143,7 @@
                         if (d.error) {
                             this.$message.error(d.error);
                         } else {
-                            this.$message.success('AI设置已保存');
+                            this.$message.success('AI 设置已保存');
                             this.aiConfig.api_key = '';
                             this.showSettings = false;
                             this.loadAiConfig();
@@ -679,7 +1151,7 @@
                         }
                     } catch(e) {
                         this.aiSaving = false;
-                        this.$message.error('保存失败: ' + e.message);
+                        this.$message.error('保存失败');
                     }
                 }
             }
