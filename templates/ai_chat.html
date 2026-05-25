@@ -260,6 +260,8 @@
             overflow-y: auto;
             scroll-behavior: smooth;
             scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
         .chat-body::-webkit-scrollbar { width: 5px; }
         .chat-body::-webkit-scrollbar-thumb { background: var(--ds-text-dimmed); border-radius: 3px; }
@@ -608,6 +610,8 @@
                         暂无对话<br><span style="font-size:11px;">点击上方按钮开始</span>
                     </div>
                 </div>
+
+
             </nav>
 
             <!-- ═══════ MAIN CHAT ═══════ -->
@@ -618,6 +622,10 @@
                     <div class="top-bar-left">
                         <button class="icon-btn" @click="sidebarVisible = !sidebarVisible" title="切换侧栏">
                             <i :class="sidebarVisible ? 'el-icon-s-fold' : 'el-icon-s-unfold'"></i>
+                        </button>
+
+                        <button class="icon-btn" @click="goBack" title="返回小工具">
+                            <i class="el-icon-close"></i>
                         </button>
 
                         <!-- Model Selector -->
@@ -652,9 +660,6 @@
                                 <div style="height: 1px; background: var(--ds-border-l1); margin: 4px 0;"></div>
                                 <div style="padding: 8px 14px; cursor: pointer; font-size: 13px;" @click="goBack">
                                     <i class="el-icon-s-home" style="margin-right:6px;"></i>返回小工具
-                                </div>
-                                <div style="padding: 8px 14px; cursor: pointer; font-size: 13px; color: #f25a5a;" @click="confirmLogout">
-                                    <i class="el-icon-switch-button" style="margin-right:6px;"></i>退出登录
                                 </div>
                             </div>
                             <el-button slot="reference" class="brand-badge user-badge" style="font-family:inherit;font-weight:500;">
@@ -846,10 +851,13 @@
             mounted: function() {
                 var self = this;
                 this.loadModels();
+                this.sidebarVisible = false;
                 this.loadConversations().then(function() {
                     if (self.conversations.length > 0) {
-                        self.selectConversation(self.conversations[0].id);
+                        self.newConversation();
                     }
+                }).catch(function() {
+                    self.newConversation();
                 });
                 if (this.isAdmin) this.loadAiConfig();
             },
@@ -1020,12 +1028,12 @@
                                     if (chunk.content) {
                                         fullResp += chunk.content;
                                         self.messages[asstIdx].content = fullResp;
-                                        self.$nextTick(self.scrollToBottom.bind(self));
+                                        if (self.isNearBottom()) self.scrollToBottom();
                                     }
                                     if (chunk.reasoning_content) {
                                         fullThink += chunk.reasoning_content;
                                         self.messages[asstIdx].thinking = fullThink;
-                                        self.$nextTick(self.scrollToBottom.bind(self));
+                                        if (self.isNearBottom()) self.scrollToBottom();
                                     }
                                     if (chunk.done && chunk.conversation_id && !self.currentConvId) {
                                         self.currentConvId = chunk.conversation_id;
@@ -1038,6 +1046,9 @@
                             }
                         }
 
+                        self.messages[asstIdx].content = fullResp;
+                        self.messages[asstIdx].thinking = fullThink;
+
                         self.isLoading = false;
                         self.streamingIndex = -1;
 
@@ -1045,12 +1056,20 @@
                             self.messages.pop();
                             self.$message.error('AI 未返回内容');
                         }
-                        self.$nextTick(self.scrollToBottom.bind(self));
+                        if (self.isNearBottom()) {
+                            self.$nextTick(self.scrollToBottom.bind(self));
+                        }
                     } catch(e) {
                         self.isLoading = false;
                         self.streamingIndex = -1;
                         self.$message.error('请求失败: ' + e.message);
                     }
+                },
+
+                isNearBottom: function() {
+                    var el = this.$refs.msgContainer;
+                    if (!el) return true;
+                    return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
                 },
 
                 scrollToBottom: function() {

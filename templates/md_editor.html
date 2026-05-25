@@ -45,7 +45,7 @@
             </el-aside>
             
             <el-container>
-                <el-header class="console-header">
+                <el-header class="console-header" v-show="view === 'list'">
                     <div class="header-left">
                         <h1>Markdown 笔记</h1>
                     </div>
@@ -135,8 +135,29 @@
                             </div>
                         </div>
                         
+                        <!-- 编辑区 -->
+                        <div class="md-editor-body">
+                            <textarea 
+                                v-show="!isPreview"
+                                ref="editor"
+                                v-model="editorContent"
+                                class="md-textarea"
+                                placeholder="在此输入 Markdown 内容..."
+                                @input="onContentChange"
+                                @blur="autoSave"
+                                @touchstart="onTouchStart"
+                                @touchmove="onTouchMove"
+                            ></textarea>
+                            <div 
+                                v-show="isPreview" 
+                                ref="preview"
+                                class="md-preview"
+                                v-html="renderedContent"
+                            ></div>
+                        </div>
+                        
                         <!-- 工具栏 -->
-                        <div v-if="!isPreview" class="md-toolbar">
+                        <div v-if="!isPreview" class="md-toolbar md-toolbar-bottom">
                             <el-tooltip content="粗体" placement="top">
                                 <el-button size="mini" @click="insertFormat('bold')">B</el-button>
                             </el-tooltip>
@@ -184,25 +205,6 @@
                             <el-tooltip content="分割线" placement="top">
                                 <el-button size="mini" @click="insertFormat('hr')">&mdash;</el-button>
                             </el-tooltip>
-                        </div>
-                        
-                        <!-- 编辑区 -->
-                        <div class="md-editor-body">
-                            <textarea 
-                                v-show="!isPreview"
-                                ref="editor"
-                                v-model="editorContent"
-                                class="md-textarea"
-                                placeholder="在此输入 Markdown 内容..."
-                                @input="onContentChange"
-                                @blur="autoSave"
-                            ></textarea>
-                            <div 
-                                v-show="isPreview" 
-                                ref="preview"
-                                class="md-preview"
-                                v-html="renderedContent"
-                            ></div>
                         </div>
                         
                         <!-- 状态栏 -->
@@ -283,14 +285,15 @@
                     return this.currentPath.split('/').filter(Boolean);
                 },
                 renderedContent() {
-                    if (typeof marked !== 'undefined') {
+                    var text = this.editorContent || '';
+                    if (typeof marked !== 'undefined' && marked.parse) {
                         try {
-                            return marked.parse(this.editorContent || '');
+                            return marked.parse(text);
                         } catch (e) {
-                            return '<p style="color:red">渲染错误: ' + e.message + '</p>';
+                            // fallback to simple render
                         }
                     }
-                    return '';
+                    return this.simpleRender(text);
                 }
             },
             mounted() {
@@ -386,20 +389,30 @@
                 },
                 autoSave() {
                     if (this.editorContent !== this.originalContent && this.currentFile) {
-                        this.saveFile();
+                        var textarea = this.$refs.editor;
+                        var start = textarea ? textarea.selectionStart : 0;
+                        var end = textarea ? textarea.selectionEnd : 0;
+                        this.saveFile().then(() => {
+                            if (textarea && document.activeElement === textarea) {
+                                this.$nextTick(function() {
+                                    textarea.setSelectionRange(start, end);
+                                });
+                            }
+                        });
                     }
                 },
                 initAutoSave() {
-                    setInterval(() => {
-                        if (this.view === 'edit' && this.editorContent !== this.originalContent) {
-                            this.autoSave();
-                        }
-                    }, 30000);
+                    // 防抖自动保存由 onContentChange 触发
                 },
                 onContentChange() {
                     if (this.editorContent !== this.originalContent) {
                         this.saveStatus = '未保存';
                     }
+                    clearTimeout(this.autoSaveTimer);
+                    var self = this;
+                    this.autoSaveTimer = setTimeout(function() {
+                        self.autoSave();
+                    }, 3000);
                 },
                 togglePreview() {
                     this.isPreview = !this.isPreview;
@@ -415,56 +428,56 @@
                     
                     switch(type) {
                         case 'bold':
-                            insertion = selected ? '**' + selected + '**' : '**粗体**';
-                            cursorOffset = selected ? 0 : -2;
+                            insertion = selected ? '**' + selected + '**' : '**';
+                            cursorOffset = 0;
                             break;
                         case 'italic':
-                            insertion = selected ? '*' + selected + '*' : '*斜体*';
-                            cursorOffset = selected ? 0 : -1;
+                            insertion = selected ? '*' + selected + '*' : '*';
+                            cursorOffset = 0;
                             break;
                         case 'h1':
-                            insertion = selected ? '# ' + selected : '# 标题';
-                            cursorOffset = selected ? 0 : -2;
+                            insertion = selected ? '# ' + selected : '# ';
+                            cursorOffset = 0;
                             break;
                         case 'h2':
-                            insertion = selected ? '## ' + selected : '## 标题';
-                            cursorOffset = selected ? 0 : -2;
+                            insertion = selected ? '## ' + selected : '## ';
+                            cursorOffset = 0;
                             break;
                         case 'quote':
-                            insertion = selected ? '> ' + selected : '> 引用';
-                            cursorOffset = selected ? 0 : -2;
+                            insertion = selected ? '> ' + selected : '> ';
+                            cursorOffset = 0;
                             break;
                         case 'code':
                             if (selected) {
                                 insertion = '```\n' + selected + '\n```';
                             } else {
                                 insertion = '```\n\n```';
-                                cursorOffset = -4;
+                                cursorOffset = 0;
                             }
                             break;
                         case 'ul':
                             if (selected) {
                                 insertion = selected.split('\n').map(function(l) { return '- ' + l; }).join('\n');
                             } else {
-                                insertion = '- 列表项';
-                                cursorOffset = -3;
+                                insertion = '- ';
+                                cursorOffset = 0;
                             }
                             break;
                         case 'ol':
                             if (selected) {
                                 insertion = selected.split('\n').map(function(l, i) { return (i+1) + '. ' + l; }).join('\n');
                             } else {
-                                insertion = '1. 列表项';
-                                cursorOffset = -3;
+                                insertion = '1. ';
+                                cursorOffset = 0;
                             }
                             break;
                         case 'link':
-                            insertion = selected ? '[' + selected + '](url)' : '[链接文本](url)';
-                            cursorOffset = selected ? -1 : -4;
+                            insertion = selected ? '[' + selected + '](url)' : '[](url)';
+                            cursorOffset = 0;
                             break;
                         case 'image':
-                            insertion = '![描述](url)';
-                            cursorOffset = -4;
+                            insertion = '![](url)';
+                            cursorOffset = 0;
                             break;
                         case 'hr':
                             insertion = '\n---\n';
@@ -602,6 +615,29 @@
                     if (bytes < 1024) return bytes + ' B';
                     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
                     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                },
+                simpleRender(text) {
+                    if (!text) return '';
+                    return text
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                        .replace(/^- (.+)$/gm, '<li>$1</li>')
+                        .replace(/`(.+?)`/g, '<code>$1</code>')
+                        .replace(/\n/g, '<br>');
+                },
+                onTouchStart(e) {
+                    this.touchStartY = e.touches[0].clientY;
+                },
+                onTouchMove(e) {
+                    // 手势劫持：阻止事件冒泡，确保 textarea 自身可流畅滚动
+                    e.stopPropagation();
                 },
                 toggleCollapse() {
                     this.isCollapse = !this.isCollapse;

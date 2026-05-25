@@ -151,6 +151,11 @@
     flex-wrap: wrap;
 }
 
+.md-toolbar-bottom {
+    border-bottom: none;
+    border-top: 1px solid #e6e6e6;
+}
+
 .md-toolbar .el-button {
     min-width: 36px;
     padding: 6px 10px;
@@ -176,6 +181,9 @@
     background: #fff;
     color: #333;
     tab-size: 4;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
 }
 
 .md-preview {
@@ -186,6 +194,9 @@
     font-size: 15px;
     line-height: 1.8;
     color: #333;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
 }
 
 /* Markdown 预览样式 - GitHub 风格 */
