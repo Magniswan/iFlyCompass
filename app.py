@@ -16,10 +16,12 @@ from modules.video import video_bp
 from modules.bili import bili_bp
 from modules.proxy import proxy_bp
 from modules.ai_chat import ai_chat_bp
+from modules.md import md_bp
 from modules.chat.websocket import register_socketio_events
 from utils import init_settings, init_nav_file
 
-for directory in [Config.TEMP_DIR, Config.INSTANCE_DIR, Config.STICKERS_DIR, Config.NOVELS_DIR, Config.VIDEOS_DIR]:
+MD_DIR = os.path.join(Config.INSTANCE_DIR, 'md')
+for directory in [Config.TEMP_DIR, Config.INSTANCE_DIR, Config.STICKERS_DIR, Config.NOVELS_DIR, Config.VIDEOS_DIR, MD_DIR]:
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -312,6 +314,7 @@ def create_app():
     app.register_blueprint(bili_bp)
     app.register_blueprint(proxy_bp)
     app.register_blueprint(ai_chat_bp)
+    app.register_blueprint(md_bp)
     
     register_socketio_events(socketio)
 

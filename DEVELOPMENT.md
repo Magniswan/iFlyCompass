@@ -2,6 +2,44 @@
 
 ## 版本更新
 
+### REL2.5.5
+
+**Markdown 笔记工具 + 版本更新**
+
+#### 一、Markdown 笔记工具
+
+- **新增 `modules/md/` Markdown 编辑器模块**：
+  - 提供 Markdown 文件管理编辑工具，位于 `/tools/md-editor`
+  - 支持文件夹嵌套结构，文件列表卡片网格展示（响应式 4/3/2 列）
+  - 单栏编辑 + 预览切换模式（使用 marked.js 渲染），非双栏
+  - 格式工具栏：粗体、斜体、H1、H2、引用、代码块、列表、链接、图片、分割线
+  - 自动保存（30秒间隔 + 失焦保存）+ 手动保存 + Ctrl+S 快捷键
+  - 返回列表时未保存内容弹出确认对话框
+  - 面包屑导航，支持点击进入子文件夹和返回上级
+  - 右键（悬停）操作：重命名、删除
+- **新增 API — 路径前缀 `/api/md/`**：
+  - `GET /api/md/files?path=` — 获取目录下文件和文件夹列表
+  - `GET /api/md/file?path=` — 读取文件内容
+  - `POST /api/md/file` — 保存/创建文件（支持 `action: create`）
+  - `POST /api/md/folder` — 创建新文件夹
+  - `DELETE /api/md/file?path=` — 删除文件/空文件夹
+  - `PUT /api/md/file` — 重命名文件/文件夹
+- **安全防护**：
+  - 路径穿越防护：`os.path.abspath` + `os.path.commonpath` 验证，确保在 `instance/md/` 范围内
+  - 仅允许 `.md` 文件操作
+  - 文件名禁止 `/\:*?"<>|` 等非法字符
+  - 单文件最大 1MB，防止恶意大文件
+- **启动时自动创建** `instance/md/` 目录（在 `app.py` 的目录创建循环中添加）
+- **应用入口注册**：在 `tools.html` 的 `builtInApps` 数组中添加 "Markdown 笔记"（图标 `edit_note`）
+- **代码变更清单**：
+  - `modules/md/__init__.py` — Blueprint 注册
+  - `modules/md/routes.py` — 页面路由
+  - `modules/md/api.py` — REST API
+  - `templates/md_editor.html` — 前端单页应用（Vue 2 + Element UI）
+  - `assets/css/md-editor.css` — 编辑器样式（GitHub 风格 Markdown 预览）
+  - `app.py` — 注册 `md_bp` + 启动时创建 `instance/md/`
+  - `templates/tools.html` — 添加工具入口
+
 ### REL2.5.4
 
 **AI 对话模块全面重构 + 用户管理修复增强**
@@ -1289,6 +1327,9 @@
   - hook.js：浏览器端拦截脚本（Service Worker + Hook 双模式）
   - proxy\_server.py：代理服务器管理（启动、停止、状态查询）
   - api.py：代理控制 API
+- **md 模块**：Markdown 笔记
+  - routes.py：Markdown 编辑器页面路由
+  - api.py：文件/文件夹管理 API（列表、读写、创建、删除、重命名）
 - **main 模块**：主页面
   - routes.py：首页、控制面板、工具页面
 - **settings 模块**：系统设置

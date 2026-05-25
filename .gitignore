@@ -9,6 +9,7 @@ __pycache__/
 lib/
 libs/
 CLAUDE.md
+docs/
 
 # Pyinstaller 生成的文件
 dist/

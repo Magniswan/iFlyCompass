@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-**版本：REL2.5.4**
+**版本：REL2.5.5**
 
 iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计，提供了多种实用工具和功能，包括：
 
@@ -30,6 +30,7 @@ iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计
   - **访问权限控制**：用户只能访问自己缓存的视频或被授权的视频，支持7天自动清理
   - **竖屏视频适配**：修复B站竖屏视频超出播放区域的问题
   - **转换状态管理**：视频转换中的状态正确切换和显示，避免页面重叠
+- **Markdown 笔记**：Markdown 文件管理编辑工具，支持文件夹嵌套、文件列表卡片网格、单栏编辑与预览切换、格式工具栏（粗体/标题/引用/代码/列表/链接等）、自动保存与手动保存
 - **AI 对话**：支持多种 AI 模型（DeepSeek-V4、DeepSeek-R1 等），对话历史管理，流式响应打字机效果，深度推理模式可选择开启或关闭
   - **DeepSeek 风格 UI**：全面借鉴 DeepSeek 官网设计语言，261px 侧边栏、840px 内容居中、16px 正文字号、品牌色 `#3964fe`
   - **深度思考控制**：支持 `thinking: {"type": "enabled/disabled"}` 参数，对推理模型精确控制思考模式启停
@@ -76,6 +77,7 @@ iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计
   - **bili/** - B站视频模块
   - **ai_chat/** - AI 对话模块
   - **proxy/** - 网页代理模块（mitmproxy 反向代理）
+  - **md/** - Markdown 编辑器模块
   - **main/** - 主页面模块
   - **settings/** - 系统设置模块
   - **announcement/** - 公告系统模块
@@ -252,7 +254,8 @@ iFlyCompass/
 │       └── api.py           # Drop API
 ├── assets/                   # 静态资源
 │   ├── css/                 # CSS 文件
-│   │   └── drop.css         # Drop 样式
+│   │   ├── drop.css         # Drop 样式
+│   │   └── md-editor.css    # Markdown 编辑器样式
 │   ├── js/                  # JavaScript 文件
 │   │   ├── novel-cache.js       # IndexedDB 小说缓存层（NovelCacheDB v2）
 │   │   ├── chapter-parser.js    # 浏览器端章节解析器
@@ -279,6 +282,7 @@ iFlyCompass/
 │   ├── passkey_management.html # Passkey 管理页面
 │   ├── swipe_test.html      # 滑动测试页面
 │   ├── tools.html           # 工具页面
+│   ├── md_editor.html       # Markdown 编辑器页面
 │   ├── system_settings.html # 系统设置页面
 │   ├── forgot_password.html # 忘记密码页面
 │   ├── announcement_manage.html # 公告管理页面
@@ -288,7 +292,8 @@ iFlyCompass/
 │   ├── config.yml           # 配置文件（YAML格式）
 │   ├── nav.yml              # 导航配置文件
 │   ├── users.db             # 用户数据库
-│   └── novels/              # 小说文件目录
+│   ├── novels/              # 小说文件目录
+│   └── md/                  # Markdown 文件目录
 ├── stickers/                 # 表情包缓存目录
 ├── temp/                     # 临时文件目录
 │   ├── music/               # 音乐缓存目录
