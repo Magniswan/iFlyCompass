@@ -191,14 +191,7 @@
                             <h3>最近对局</h3>
                             <el-table :data="recentRecords" size="small" style="width: 100%" v-loading="recordsLoading">
                                 <el-table-column prop="game_type_name" label="游戏" width="100"></el-table-column>
-                                <el-table-column label="结果" width="200">
-                                    <template slot-scope="scope">
-                                        <span v-if="scope.row.winner_names && scope.row.winner_names.length > 0">
-                                            {{ scope.row.winner_names.join(', ') }} 获胜
-                                        </span>
-                                        <span v-else>和棋</span>
-                                    </template>
-                                </el-table-column>
+                                <el-table-column prop="result_str" label="结果" width="200"></el-table-column>
                                 <el-table-column prop="ended_at_str" label="时间"></el-table-column>
                             </el-table>
                             <el-empty v-if="recentRecords.length === 0 && !recordsLoading" description="暂无对局记录"></el-empty>
@@ -277,9 +270,10 @@
                         .then(function(data) {
                             var typeNames = { doudizhu: '斗地主', chess: '象棋', gomoku: '五子棋' };
                             self.recentRecords = (data.records || []).map(function(r) {
+                                var winners = r.winner_names || [];
                                 return {
                                     game_type_name: typeNames[r.game_type] || r.game_type,
-                                    winner_names: r.winner_names || [],
+                                    result_str: winners.length > 0 ? winners.join(', ') + ' 获胜' : '和棋',
                                     ended_at_str: r.ended_at ? new Date(r.ended_at).toLocaleString() : '-'
                                 };
                             });
