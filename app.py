@@ -17,7 +17,10 @@ from modules.bili import bili_bp
 from modules.proxy import proxy_bp
 from modules.ai_chat import ai_chat_bp
 from modules.md import md_bp
+from modules.game_doudizhu import game_doudizhu_bp
+from modules.game_doudizhu.api import api_bp as game_doudizhu_api_bp
 from modules.chat.websocket import register_socketio_events
+from modules.game_doudizhu.websocket import register_socketio_events as register_doudizhu_socketio_events
 from utils import init_settings, init_nav_file
 
 MD_DIR = os.path.join(Config.INSTANCE_DIR, 'md')
@@ -358,8 +361,11 @@ def create_app():
     app.register_blueprint(proxy_bp)
     app.register_blueprint(ai_chat_bp)
     app.register_blueprint(md_bp)
+    app.register_blueprint(game_doudizhu_bp)
+    app.register_blueprint(game_doudizhu_api_bp)
     
     register_socketio_events(socketio)
+    register_doudizhu_socketio_events(socketio)
 
     @app.route('/sw.js')
     def serve_service_worker():
