@@ -21,9 +21,12 @@ from modules.game_doudizhu import game_doudizhu_bp
 from modules.game_doudizhu.api import api_bp as game_doudizhu_api_bp
 from modules.game_chess import game_chess_bp
 from modules.game_chess.api import api_bp as game_chess_api_bp
+from modules.game_gomoku import game_gomoku_bp
+from modules.game_gomoku.api import api_bp as game_gomoku_api_bp
 from modules.chat.websocket import register_socketio_events
 from modules.game_doudizhu.websocket import register_socketio_events as register_doudizhu_socketio_events
 from modules.game_chess.websocket import register_socketio_events as register_chess_socketio_events
+from modules.game_gomoku.websocket import register_socketio_events as register_gomoku_socketio_events
 from utils import init_settings, init_nav_file
 
 MD_DIR = os.path.join(Config.INSTANCE_DIR, 'md')
@@ -368,10 +371,13 @@ def create_app():
     app.register_blueprint(game_doudizhu_api_bp)
     app.register_blueprint(game_chess_bp)
     app.register_blueprint(game_chess_api_bp)
+    app.register_blueprint(game_gomoku_bp)
+    app.register_blueprint(game_gomoku_api_bp)
     
     register_socketio_events(socketio)
     register_doudizhu_socketio_events(socketio)
     register_chess_socketio_events(socketio)
+    register_gomoku_socketio_events(socketio)
 
     @app.route('/sw.js')
     def serve_service_worker():
