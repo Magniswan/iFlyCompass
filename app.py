@@ -291,6 +291,49 @@ def run_migrations(app):
             conn.commit()
             print("数据库迁移完成！")
 
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='game_record'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 game_record 表...")
+            cursor.execute('''
+                CREATE TABLE game_record (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    game_type VARCHAR(20) NOT NULL,
+                    room_id VARCHAR(36) NOT NULL,
+                    started_at DATETIME,
+                    ended_at DATETIME,
+                    winner_ids JSON,
+                    winner_names JSON,
+                    loser_ids JSON,
+                    loser_names JSON,
+                    player_ids JSON,
+                    game_data JSON
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_game_stats'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 user_game_stats 表...")
+            cursor.execute('''
+                CREATE TABLE user_game_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    game_type VARCHAR(20) NOT NULL,
+                    total_games INTEGER DEFAULT 0,
+                    wins INTEGER DEFAULT 0,
+                    losses INTEGER DEFAULT 0,
+                    draws INTEGER DEFAULT 0,
+                    win_rate REAL DEFAULT 0.0,
+                    last_played DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES user(id),
+                    CONSTRAINT uq_user_game UNIQUE (user_id, game_type)
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
