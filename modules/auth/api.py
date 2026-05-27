@@ -427,3 +427,23 @@ def api_logout_all():
     db.session.commit()
     logout_user()
     return jsonify({'success': True, 'message': '已退出所有设备'})
+
+@auth_bp.route('/api/admin/logout-all-users', methods=['POST'])
+@login_required
+def api_admin_logout_all_users():
+    if not (current_user.is_admin or current_user.is_super_admin):
+        return jsonify({'error': '权限不足'}), 403
+    
+    users = User.query.all()
+    logout_count = 0
+    for user in users:
+        if user.id != current_user.id:
+            user.invalidate_all_sessions()
+            logout_count += 1
+    
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': f'已强制 {logout_count} 个用户退出登录',
+        'logout_count': logout_count
+    })

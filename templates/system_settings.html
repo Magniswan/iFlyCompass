@@ -363,6 +363,21 @@
                                 
                                 <el-tab-pane label="安全设置" name="security">
                                     <div class="settings-section">
+                                        <div class="settings-section-title">会话管理</div>
+                                        <div class="settings-item">
+                                            <div class="settings-item-content">
+                                                <div class="settings-item-label">一键退出所有人登录</div>
+                                                <div class="settings-item-desc">强制所有在线用户退出登录，需要重新登录（当前管理员除外）</div>
+                                            </div>
+                                            <div class="settings-item-control">
+                                                <el-button type="danger" plain @click="logoutAllUsers" :loading="logoutAllUsersLoading" icon="el-icon-switch-button">
+                                                    执行
+                                                </el-button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="settings-section">
                                         <div class="settings-section-title">用户名设置</div>
                                         <div class="settings-item">
                                             <div class="settings-item-content">
@@ -567,6 +582,7 @@
                     },
                     passwordStrengthOptions: [],
                     cardLayoutOptions: [],
+                    logoutAllUsersLoading: false
 
                 };
             },
@@ -718,7 +734,33 @@
                 goToAnnouncementManage() {
                     window.location.href = '/board/announcements';
                 },
-
+                logoutAllUsers() {
+                    var self = this;
+                    this.$confirm('确定要强制所有用户退出登录吗？此操作不可撤销。', '一键退出所有人登录', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(() => {
+                        self.logoutAllUsersLoading = true;
+                        fetch('/api/admin/logout-all-users', {
+                            method: 'POST'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            self.logoutAllUsersLoading = false;
+                            if (data.success) {
+                                self.$message.success(data.message || '已强制所有用户退出登录');
+                            } else {
+                                self.$message.error(data.error || '操作失败');
+                            }
+                        })
+                        .catch(error => {
+                            self.logoutAllUsersLoading = false;
+                            console.error('一键退出所有人登录失败:', error);
+                            self.$message.error('操作失败');
+                        });
+                    }).catch(() => {});
+                }
             }
         });
     </script>

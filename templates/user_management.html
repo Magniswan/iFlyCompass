@@ -223,6 +223,9 @@
                             <el-button type="primary" @click="dialogVisible = true" icon="el-icon-plus">
                                 添加用户
                             </el-button>
+                            <el-button type="danger" plain @click="logoutAllUsers" icon="el-icon-switch-button" :loading="logoutAllUsersLoading" v-if="isAdmin">
+                                一键退出所有人登录
+                            </el-button>
                         </div>
                         
                         <!-- 用户表格 -->
@@ -430,7 +433,8 @@
                         password: ''
                     },
                     userMenuVisible: false,
-                    logoutAllLoading: false
+                    logoutAllLoading: false,
+                    logoutAllUsersLoading: false
                 };
             },
             computed: {
@@ -742,6 +746,33 @@
                         .catch(error => {
                             self.logoutAllLoading = false;
                             console.error('退出所有设备失败:', error);
+                            self.$message.error('操作失败');
+                        });
+                    }).catch(() => {});
+                },
+                logoutAllUsers() {
+                    var self = this;
+                    this.$confirm('确定要强制所有用户退出登录吗？此操作不可撤销。', '一键退出所有人登录', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(() => {
+                        self.logoutAllUsersLoading = true;
+                        fetch('/api/admin/logout-all-users', {
+                            method: 'POST'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            self.logoutAllUsersLoading = false;
+                            if (data.success) {
+                                self.$message.success(data.message || '已强制所有用户退出登录');
+                            } else {
+                                self.$message.error(data.error || '操作失败');
+                            }
+                        })
+                        .catch(error => {
+                            self.logoutAllUsersLoading = false;
+                            console.error('一键退出所有人登录失败:', error);
                             self.$message.error('操作失败');
                         });
                     }).catch(() => {});
