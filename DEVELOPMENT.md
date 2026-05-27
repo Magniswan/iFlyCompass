@@ -2,6 +2,105 @@
 
 ## 版本更新
 
+### REL3.0.0
+
+**Markdown 笔记 + AI 对话体验大优化 + 联机小游戏**
+
+#### 一、联机小游戏模块
+
+新增斗地主、象棋、五子棋三个联机小游戏，每个游戏独立 Blueprint 模块，独立 Socket.IO namespace。
+
+- **斗地主（`modules/game_doudizhu/`）**：
+  - 3人真人联机，无 AI 填充
+  - 完整牌型系统：单张/对子/三张/三带一/三带二/顺子/连对/炸弹/王炸
+  - 叫分抢地主：1/2/3分或不叫，最高分者获底牌
+  - 出牌验证：牌型合法性、手牌存在性、能否压过上家
+  - 胜负判定：地主先出完则地主胜，农民先出完则农民共赢
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/doudizhu.html`, `assets/js/doudizhu.js`
+
+- **象棋（`modules/game_chess/`）**：
+  - 2人真人联机，Canvas 绘制传统 9×10 棋盘
+  - 完整走法验证：帅/将（九宫格）、仕/士（斜线）、相/象（田字格/不过河）、马（日字/不蹩腿）、车（直线/不越子）、炮（吃子隔一）、兵/卒（过河前后规则）
+  - 将军/将死/困毙自动检测
+  - 支持认输、求和/接受/拒绝
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/chess.html`, `assets/js/chess.js`
+
+- **五子棋（`modules/game_gomoku/`）**：
+  - 2人真人联机，Canvas 绘制 15×15 棋盘
+  - 四向五连判定（横/竖/对角线）
+  - 棋盘满自动判和
+  - 支持认输、求和
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/gomoku.html`, `assets/js/gomoku.js`
+
+- **通用游戏功能**：
+  - 游戏大厅（`templates/games.html`）：三个游戏卡片 + 最近对局列表
+  - 房间内聊天：系统消息 + 玩家消息，独立消息面板
+  - 战绩统计：`models/game_stats.py` 新增 `GameRecord` + `UserGameStats`
+  - 排行榜 API：`/api/game/leaderboard/<game_type>`
+  - 房间密码保护：创建时可设密码，加入需验证
+  - 共享资源：`assets/css/games.css`, `assets/js/game_socket.js`
+
+#### 二、Markdown 笔记编辑器全面优化
+
+- **编辑状态沉浸式体验**：
+  - 进入编辑状态后，顶部 "Markdown 笔记" 大标题自动隐藏，编辑区获得最大化可视空间
+  - 工具栏从编辑区**上方移至下方**，避免安卓虚拟键盘弹出时把工具栏顶出屏幕
+- **自动保存不中断编辑**：
+  - 移除每 30 秒强制轮询保存，改为**防抖自动保存**（停止输入 3 秒后触发）
+  - 保存前记录光标位置，保存完成后自动恢复，用户当前输入完全不受影响
+- **修复安卓预览空白**：
+  - 新增 `simpleRender()` 降级渲染方案。即使 `marked.js` 在某些安卓浏览器上加载失败，预览区仍可用基础 HTML 渲染 Markdown
+  - 同时修复了部分安卓设备点击预览后内容为空的问题
+- **取消格式工具示例文字与光标劫持**：
+  - 点击 H1/H2/粗体/斜体等按钮时，不再插入"标题""粗体"等示例占位文字
+  - 改为只插入纯标记符（`# `、`**`、`*` 等），光标直接停在标记末尾，用户可自由删除或继续输入
+- **触屏滑动体验优化**：
+  - `textarea` 和预览区增加 `-webkit-overflow-scrolling: touch`、`touch-action: pan-y`、`overscroll-behavior: contain`
+  - 增加 `touchmove` 手势劫持，阻止事件冒泡到父层，确保在安卓设备上可流畅独立滚动
+
+#### 三、AI 对话体验优化
+
+- **进入页面即新建对话**：
+  - 进入 AI 对话页面时，侧边栏对话列表默认收起，并自动创建一个新的空白对话
+  - 无需手动点"新对话"即可直接开始聊天
+- **AI 生成时不打断阅读历史**：
+  - 新增 `isNearBottom()` 智能检测。AI 流式输出和回复结束时，仅在用户当前处于底部 150px 范围内时才自动滚动
+  - 若用户正在向上翻阅历史记录，新内容生成不会强制把他拉回底部
+- **一键退出按钮**：
+  - 顶栏左侧新增显眼的 **× 关闭图标按钮**，无需展开侧边栏、无需点任何下拉菜单，直接点击即可返回小工具页面
+- **触屏滑动优化**：
+  - 对话消息区域增加 `-webkit-overflow-scrolling: touch` 和 `overscroll-behavior: contain`，提升移动端滚动体验
+- **深度思考开关 Bug 修复**：
+  - 修复点击"深度思考"按钮无响应的问题
+  - 将内联表达式 `@click="supportsThinking && (enableThinking = !enableThinking)"` 改为方法调用 `@click="toggleThinking"`
+  - 新增 `toggleThinking()` 方法，确保在支持深度思考的模型上能正常开关
+- **手势劫持**：
+  - 为 `.chat-body` 添加 `@touchmove="onChatTouchMove"`，阻止触摸事件冒泡到 document，防止下拉刷新和回弹
+  - 为 `.chat-footer` 和输入框 `textarea` 添加 `@touchmove="onInputTouchMove"`，防止键盘弹出时页面异常滚动
+  - 补充 CSS：`touch-action: pan-y` 到 `.chat-body` 和 `.input-container`
+
+#### 四、手势劫持与交互修复
+
+- **Markdown 笔记底部栏重构**：
+  - 将原本分开的 **工具栏**（`md-toolbar`）和 **状态栏**（`md-status-bar`）合并为统一的 `md-bottom-bar`
+  - 工具按钮在左侧，状态信息（字符数 / 已加载 / 自动保存中）在右侧，保持原有按钮和字体大小不变
+  - 使用 `justify-content: space-between` 排成一行，塞到最下一行
+- **Markdown 笔记手势劫持**：
+  - `textarea` 和 `.md-preview` 都绑定 `@touchstart` / `@touchmove` 事件
+  - 在 `onTouchMove` 中阻止事件冒泡，并在滚动到边界时 `e.preventDefault()`，防止页面整体被拉动（橡皮筋效果）
+  - 为 `.md-editor-body`、`.md-textarea`、`.md-preview` 添加 `touch-action: pan-y` 和 `overscroll-behavior: contain`
+- **Markdown 笔记安卓虚拟键盘适配**：
+  - 新增 `initKeyboardDetection()` 方法，优先使用 `Visual Viewport API` 检测可视区域高度变化；不支持则回退到 `window.resize`
+  - 当可视高度缩小超过屏幕高度的 25% 时，判定为键盘抬起，给 `md-bottom-bar` 添加 `keyboard-open` 类
+  - CSS 中 `.md-bottom-bar.keyboard-open { display: none; }` 实现隐藏（字符数、已加载等字样在键盘抬起时不显示）
+- **代码变更清单**：
+  - `templates/ai_chat.html`：修复深度思考开关点击事件、添加手势劫持事件处理器
+  - `templates/md_editor.html`：底部栏重构为统一 `md-bottom-bar`、添加手势劫持和键盘检测逻辑
+  - `assets/css/md-editor.css`：重写底部栏样式、添加 `keyboard-open` 隐藏规则
+
 ### REL2.5.5
 
 **Markdown 笔记工具 + 版本更新**

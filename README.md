@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-**版本：REL2.5.5**
+**版本：REL3.0.0**
 
 iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计，提供了多种实用工具和功能，包括：
 
@@ -31,10 +31,14 @@ iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计
   - **竖屏视频适配**：修复B站竖屏视频超出播放区域的问题
   - **转换状态管理**：视频转换中的状态正确切换和显示，避免页面重叠
 - **Markdown 笔记**：Markdown 文件管理编辑工具，支持文件夹嵌套、文件列表卡片网格、单栏编辑与预览切换、格式工具栏（粗体/标题/引用/代码/列表/链接等）、自动保存与手动保存
+  - **底部栏重构**：工具栏与状态栏合并为统一的底部栏，工具按钮在左、状态信息在右，保持原有大小不变
+  - **手势劫持**：编辑器区域阻止触摸事件冒泡，防止浏览器默认行为（下拉刷新、回弹）干扰内容滚动
+  - **安卓虚拟键盘适配**：检测虚拟键盘抬起状态（Visual Viewport API），键盘弹出时自动隐藏底部栏（字符数/已加载等字样不显示），释放更多编辑空间
 - **AI 对话**：支持多种 AI 模型（DeepSeek-V4、DeepSeek-R1 等），对话历史管理，流式响应打字机效果，深度推理模式可选择开启或关闭
   - **DeepSeek 风格 UI**：全面借鉴 DeepSeek 官网设计语言，261px 侧边栏、840px 内容居中、16px 正文字号、品牌色 `#3964fe`
-  - **深度思考控制**：支持 `thinking: {"type": "enabled/disabled"}` 参数，对推理模型精确控制思考模式启停
+  - **深度思考控制**：支持 `thinking: {"type": "enabled/disabled"}` 参数，对推理模型精确控制思考模式启停，修复深度思考开关不能正常切换的 Bug
   - **预设模型更新**：默认使用 DeepSeek 最新 V4 系列（deepseek-v4-flash / deepseek-v4-pro），均支持深度思考
+  - **手势劫持**：对话消息区域和输入区阻止触摸事件冒泡，防止下拉刷新和回弹干扰滚动体验
 - **表情包管理**：表情商城、个人收藏、表情包合集管理
 - **公告系统**：横幅公告、通知公告、公告中心，支持多优先级和权限管理
 - **Drop 功能**：向所有用户发送 Drop 消息，支持黑名单管理，已读标记避免重复显示
@@ -46,6 +50,13 @@ iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计
 - **Passkey 管理**：支持生成和管理注册邀请码
 - **手势防御**：防御层 5 技术，防止宿主 App 全局手势劫持页面滚动
 - **系统设置**：管理员可配置首页显示、昵称设置、导航栏、密码强度、安全问题等
+- **联机小游戏**：支持斗地主、象棋、五子棋三个联机游戏，独立房间管理，实时对战
+  - **斗地主**：3人真人联机，叫分抢地主，完整牌型系统（单张/对子/顺子/炸弹等），出牌验证
+  - **象棋**：2人真人联机，Canvas 绘制传统棋盘，完整走法验证（蹩马腿/塞象眼/将军/将死/困毙）
+  - **五子棋**：2人真人联机，15×15 棋盘，五连判定，Canvas 绘制黑白棋子
+  - **房间内聊天**：每个游戏房间内置消息面板，支持系统消息和玩家聊天
+  - **战绩统计**：自动记录每局胜负，支持查看最近对局和排行榜
+  - **房间密码**：创建房间时可设置密码保护
 - **导航配置**：支持通过 nav.yml 自定义添加小工具/小游戏导航项
 
 ## 技术栈
@@ -78,6 +89,9 @@ iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计
   - **ai_chat/** - AI 对话模块
   - **proxy/** - 网页代理模块（mitmproxy 反向代理）
   - **md/** - Markdown 编辑器模块
+  - **game_doudizhu/** - 斗地主游戏模块
+  - **game_chess/** - 象棋游戏模块
+  - **game_gomoku/** - 五子棋游戏模块
   - **main/** - 主页面模块
   - **settings/** - 系统设置模块
   - **announcement/** - 公告系统模块
@@ -137,6 +151,29 @@ iFlyCompass 是一个多功能的 Web 应用平台，采用模块化架构设计
 - 权限管理（普通用户、管理员、超级管理员）
 - 永久会话（除非被其他终端顶号）
 
+### 联机小游戏
+
+- **斗地主**：3人真人联机对战，完整牌型系统（单张/对子/三张/顺子/连对/炸弹/王炸等）
+  - 叫分抢地主（1/2/3分或不叫），最高分者获底牌成为地主
+  - 出牌验证：牌型合法性、手牌存在性、能否压过上家
+  - 连续两人 pass 后新一轮开始
+  - 地主先出完则地主胜，任一农民先出完则农民共赢
+- **象棋**：2人真人联机对弈，Canvas 绘制传统 9×10 棋盘
+  - 完整走法验证：帅/将（九宫格）、仕/士（斜线）、相/象（田字格/不过河）、马（日字/不蹩腿）、车（直线/不越子）、炮（直线/吃子隔一）、兵/卒（过河前后规则）
+  - 将军/将死/困毙检测，自动判定胜负
+  - 支持认输、求和/接受/拒绝
+- **五子棋**：2人真人联机对弈，Canvas 绘制 15×15 棋盘
+  - 黑白交替落子，黑方先行
+  - 四向五连判定（横/竖/对角线）
+  - 棋盘满自动判和
+  - 支持认输、求和
+- **通用游戏功能**：
+  - 房间内实时聊天（系统消息 + 玩家消息）
+  - 战绩统计：自动写入 `game_record` 和 `user_game_stats` 表
+  - 最近对局展示、排行榜 API
+  - 房间密码保护
+  - 房主解散、玩家离开自动处理
+
 ### 其他功能
 
 - 必应每日壁纸展示
@@ -184,7 +221,8 @@ iFlyCompass/
 │   ├── sticker.py           # UserSticker, PackSticker 模型
 │   ├── announcement.py      # Announcement, UserAnnouncementStatus 模型
 │   ├── drop.py              # DropMessage, DropSettings, DropBlacklist 模型
-│   └── ai_chat.py            # AI 对话模型
+│   ├── ai_chat.py           # AI 对话模型
+│   └── game_stats.py        # GameRecord, UserGameStats 模型
 ├── utils/                    # 工具函数层
 │   ├── __init__.py
 │   ├── common.py            # 通用工具函数
@@ -237,6 +275,25 @@ iFlyCompass/
 │   │   ├── hook.js           # 浏览器端拦截脚本（Service Worker + Hook）
 │   │   ├── proxy_server.py   # 代理服务器管理（启动、停止）
 │   │   └── api.py            # 代理控制 API（状态查询、启动停止）
+│   ├── md/                  # Markdown 编辑器模块
+│   │   ├── __init__.py
+│   │   ├── routes.py        # Markdown 编辑器路由
+│   │   └── api.py           # Markdown API
+│   ├── game_doudizhu/       # 斗地主游戏模块
+│   │   ├── __init__.py      # Blueprint 注册 + 共享房间状态
+│   │   ├── routes.py        # 游戏页面路由
+│   │   ├── api.py           # 房间管理 REST API
+│   │   └── websocket.py     # Socket.IO 游戏事件 + 牌型系统
+│   ├── game_chess/          # 象棋游戏模块
+│   │   ├── __init__.py      # Blueprint 注册 + 共享房间状态
+│   │   ├── routes.py        # 游戏页面路由
+│   │   ├── api.py           # 房间管理 REST API
+│   │   └── websocket.py     # Socket.IO 游戏事件 + 走法验证
+│   ├── game_gomoku/         # 五子棋游戏模块
+│   │   ├── __init__.py      # Blueprint 注册 + 共享房间状态
+│   │   ├── routes.py        # 游戏页面路由
+│   │   ├── api.py           # 房间管理 REST API
+│   │   └── websocket.py     # Socket.IO 游戏事件 + 五连判定
 │   ├── main/                # 主页面模块
 │   │   ├── __init__.py
 │   │   └── routes.py        # 主页面路由
@@ -261,7 +318,11 @@ iFlyCompass/
 │   │   ├── chapter-parser.js    # 浏览器端章节解析器
 │   │   ├── offline-handler.js   # 离线请求降级处理
 │   │   ├── drop.js              # Drop 脚本
-│   │   └── sw.js                # Service Worker（PWA 离线缓存）
+│   │   ├── sw.js                # Service Worker（PWA 离线缓存）
+│   │   ├── game_socket.js       # Socket.IO 游戏客户端基类
+│   │   ├── doudizhu.js          # 斗地主前端逻辑
+│   │   ├── chess.js             # 象棋前端逻辑
+│   │   └── gomoku.js            # 五子棋前端逻辑
 │   ├── icons/               # PWA 图标
 │   ├── images/              # 图片文件
 │   └── manifest.json        # PWA 清单
@@ -274,6 +335,10 @@ iFlyCompass/
 │   ├── bili_player.html     # B站视频页面
 │   ├── ai_chat.html         # AI 对话页面
 │   ├── web_proxy.html        # 网页代理工具页面
+│   ├── games.html            # 游戏大厅页面
+│   ├── doudizhu.html         # 斗地主游戏页面
+│   ├── chess.html            # 象棋游戏页面
+│   ├── gomoku.html           # 五子棋游戏页面
 │   ├── index.html           # 首页
 │   ├── login.html           # 登录页面
 │   ├── register.html        # 注册页面
