@@ -197,6 +197,9 @@
             },
             handleMenuClick: function(key) {
                 this.userMenuVisible = false;
+                if (this.inRoom && this.roomId) {
+                    this.goBack();
+                }
                 if (key === 'dashboard') {
                     window.location.href = '/board';
                 } else if (key === 'users') {
@@ -397,8 +400,7 @@
                 var selectedSet = {};
                 this.selectedCards.forEach(function(idx) { selectedSet[idx] = true; });
                 var cards = this.myCards.filter(function(_, idx) { return selectedSet[idx]; });
-                this.myCards = this.myCards.filter(function(_, idx) { return !selectedSet[idx]; });
-                this.selectedCards = [];
+                // 等待服务端确认后再移除手牌，避免验证失败时牌被吞
                 socket.emit('play_cards', { room_id: this.roomId, cards: cards });
             },
             passTurn: function() {
@@ -575,6 +577,13 @@
                     self.gameState.consecutive_passes = 0;
                     if (self.gameState.hands_count) {
                         self.gameState.hands_count[String(data.seat)] = data.remaining;
+                    }
+                    // 服务端确认出牌成功，从自己的手牌中移除
+                    if (data.seat === self.mySeat) {
+                        var playedSet = {};
+                        data.cards.forEach(function(card) { playedSet[card] = true; });
+                        self.myCards = self.myCards.filter(function(card) { return !playedSet[card]; });
+                        self.selectedCards = [];
                     }
                     var player = self.room.players[data.seat];
                     var name = player ? (player.nickname || player.username) : '玩家';

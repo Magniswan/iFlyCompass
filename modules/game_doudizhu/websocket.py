@@ -255,7 +255,7 @@ def _can_start_bidding(room):
             gs['current_bid'] = 1
         else:
             # 有最高叫分者
-            pass  # bidder 已经是最高叫分者
+            gs['landlord'] = gs['bidder']
         
         # 给地主发底牌
         landlord = gs['landlord']

@@ -160,6 +160,9 @@
             },
             handleMenuClick: function(key) {
                 this.userMenuVisible = false;
+                if (this.inRoom && this.roomId) {
+                    this.goBack();
+                }
                 if (key === 'dashboard') {
                     window.location.href = '/board';
                 } else if (key === 'users') {

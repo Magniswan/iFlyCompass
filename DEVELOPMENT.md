@@ -101,6 +101,48 @@
   - `templates/md_editor.html`：底部栏重构为统一 `md-bottom-bar`、添加手势劫持和键盘检测逻辑
   - `assets/css/md-editor.css`：重写底部栏样式、添加 `keyboard-open` 隐藏规则
 
+#### 五、管理员一键退出所有人登录
+
+- **功能概述**：管理员可一键强制所有其他在线用户退出登录，无需修改任何用户密码。被退出的用户在下一次请求时会因会话版本不匹配而被视为未登录，自动重定向到登录页。
+- **实现原理**：
+  - 复用现有的 `session_version` 会话版本控制机制
+  - 遍历所有用户（排除当前操作的管理员自身），对每个用户调用 `invalidate_all_sessions()` 递增其 `session_version`
+  - Flask-Login 的 `load_user` 钩子会在每次请求时检查 session 中的 `_session_version` 是否与数据库一致，不一致则返回 `None`，实现"踢下线"效果
+- **权限控制**：
+  - 仅管理员（`is_admin`）或超级管理员（`is_super_admin`）可调用
+  - 普通用户调用返回 403 权限不足
+- **前端入口**：
+  - **用户管理页面**（`templates/user_management.html`）：在"添加用户"按钮旁新增红色危险风格按钮"一键退出所有人登录"，带二次确认对话框和加载状态
+  - **系统设置页面**（`templates/system_settings.html`）：在"安全设置" Tab 下新增"会话管理"区块，包含功能说明和"执行"按钮
+- **API 设计**：
+  - `POST /api/admin/logout-all-users`
+  - 无需参数，使用当前登录用户身份
+  - 返回：`{success: true, message: "已强制 N 个用户退出登录", logout_count: N}`
+- **代码变更清单**：
+  - `modules/auth/api.py`：新增 `api_admin_logout_all_users()` 端点
+  - `templates/user_management.html`：新增按钮、确认对话框、`logoutAllUsers()` 方法
+  - `templates/system_settings.html`：新增"会话管理"区块、按钮和方法
+
+#### 六、联机小游戏 Bug 修复
+
+- **斗地主叫分逻辑修复**：
+  - **问题**：三人叫分完成后，若有玩家叫分（`current_bid > 0`），`landlord` 字段未被正确设置，导致底牌发放时引用 `None` 索引，引发服务器错误
+  - **根本原因**：`_can_start_bidding()` 函数中，当 `bid_count >= 3` 且 `current_bid > 0` 时，代码仅执行 `pass`，未将 `bidder` 赋值给 `landlord`
+  - **修复**：将 `pass` 改为 `gs['landlord'] = gs['bidder']`，确保地主正确确定
+  - **影响文件**：`modules/game_doudizhu/websocket.py`
+
+- **小游戏退出房间问题修复**：
+  - **问题**：玩家通过侧边栏导航（如点击"首页"、"小游戏"等）离开游戏页面时，未发送 `leave_room` 事件，玩家仍留在房间中，房间不会自动解散
+  - **根本原因**：`handleMenuClick` 方法直接执行页面跳转，未先调用 `goBack()` 触发 Socket.IO 离开事件
+  - **修复**：在 `handleMenuClick` 开头添加判断，若当前在房间中则先调用 `goBack()` 离开房间，再执行页面跳转
+  - **影响文件**：`assets/js/doudizhu.js`、`assets/js/gomoku.js`、`assets/js/chess.js`
+
+- **斗地主出牌验证失败牌被吞修复**：
+  - **问题**：玩家点击"出牌"按钮后，前端立即从手牌中移除选中的牌再发送请求；若服务端验证失败（牌型不合法、压不过上家、手牌不足等），这些牌不会自动回到手中，导致牌"消失"
+  - **根本原因**：`playCards()` 方法在 `socket.emit()` 之前就修改了 `myCards` 和 `selectedCards`，而 `error` 事件不会回滚手牌
+  - **修复**：`playCards()` 不再提前移除手牌，改为仅在收到服务端 `cards_played` 确认且 `data.seat === mySeat` 时才真正移除；服务端验证失败时手牌和选中状态保持不变
+  - **影响文件**：`assets/js/doudizhu.js`
+
 ### REL2.5.5
 
 **Markdown 笔记工具 + 版本更新**
@@ -1787,6 +1829,15 @@
   - answer: 安全问题答案
   - new\_password: 新密码
 - **返回**：成功/失败信息 JSON
+
+#### 3.2.10 管理员一键退出所有人登录
+
+- **URL**：`/api/admin/logout-all-users`
+- **方法**：POST
+- **权限**：管理员或超级管理员
+- **参数**：无（使用当前登录用户身份）
+- **返回**：成功/失败信息 JSON（`success`、`message`、`logout_count`）
+- **说明**：强制除当前管理员外的所有用户退出登录，利用 `session_version` 机制使所有已登录会话失效
 
 ### 3.3 Passkey 管理 API
 
