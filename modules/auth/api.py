@@ -94,7 +94,36 @@ def api_users():
         
         if not current_user.is_super_admin and user.is_admin:
             return jsonify({'error': '只有超级管理员可以删除管理员用户'}), 403
-        
+
+        from models.ai_chat import AiConversation, AiMessage
+        from models.drop import DropMessage, DropSettings, DropBlacklist
+        from models.bili_video import BiliVideoUser
+
+        # 删除AI对话相关数据
+        conversations = AiConversation.query.filter_by(user_id=user_id).all()
+        for conv in conversations:
+            AiMessage.query.filter_by(conversation_id=conv.id).delete()
+        AiConversation.query.filter_by(user_id=user_id).delete()
+
+        # 删除Drop相关数据
+        DropBlacklist.query.filter_by(user_id=user_id).delete()
+        DropBlacklist.query.filter_by(blocked_user_id=user_id).delete()
+        DropSettings.query.filter_by(user_id=user_id).delete()
+        DropMessage.query.filter_by(sender_id=user_id).delete()
+
+        # 删除B站视频相关数据
+        BiliVideoUser.query.filter_by(user_id=user_id).delete()
+
+        # 删除公告相关数据
+        from models.announcement import Announcement, UserAnnouncementStatus
+        UserAnnouncementStatus.query.filter_by(user_id=user_id).delete()
+
+        # 删除Drop已读记录
+        db.session.execute(db.text("DELETE FROM drop_read WHERE user_id = :uid"), {"uid": user_id})
+
+        # 删除视频访问控制相关数据
+        db.session.execute(db.text("DELETE FROM video_access_user WHERE user_id = :uid"), {"uid": user_id})
+
         db.session.delete(user)
         db.session.commit()
         return jsonify({'success': True})
@@ -398,3 +427,23 @@ def api_logout_all():
     db.session.commit()
     logout_user()
     return jsonify({'success': True, 'message': '已退出所有设备'})
+
+@auth_bp.route('/api/admin/logout-all-users', methods=['POST'])
+@login_required
+def api_admin_logout_all_users():
+    if not (current_user.is_admin or current_user.is_super_admin):
+        return jsonify({'error': '权限不足'}), 403
+    
+    users = User.query.all()
+    logout_count = 0
+    for user in users:
+        if user.id != current_user.id:
+            user.invalidate_all_sessions()
+            logout_count += 1
+    
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': f'已强制 {logout_count} 个用户退出登录',
+        'logout_count': logout_count
+    })

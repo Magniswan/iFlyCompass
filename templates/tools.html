@@ -394,8 +394,55 @@
                 
                 <el-main class="console-content">
                     {% if category == 'games' %}
-                    <div style="display: flex; align-items: center; justify-content: center; min-height: 400px;">
-                        <el-empty description="小游戏功能开发中，敬请期待"></el-empty>
+                    <div class="tools-select-container">
+                        <div class="tools-select-header">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <h2 style="margin: 0; font-size: 18px; color: #303133;">小游戏</h2>
+                            </div>
+                        </div>
+                        <div class="tools-select-body">
+                            <div class="tools-grid">
+                                <div class="tool-card" onclick="window.location.href='/games/doudizhu'">
+                                    <div class="tool-card-body">
+                                        <div class="tool-icon">
+                                            <i class="material-icons">style</i>
+                                        </div>
+                                        <div class="tool-name">斗地主</div>
+                                        <div class="tool-provider">Built-in</div>
+                                        <div class="tool-description">经典三人扑克牌游戏，叫分抢地主！</div>
+                                    </div>
+                                    <div class="tool-card-footer">
+                                        <el-button type="primary" size="small">开始游戏</el-button>
+                                    </div>
+                                </div>
+                                <div class="tool-card" onclick="window.location.href='/games/chess'">
+                                    <div class="tool-card-body">
+                                        <div class="tool-icon">
+                                            <i class="material-icons">grid_on</i>
+                                        </div>
+                                        <div class="tool-name">中国象棋</div>
+                                        <div class="tool-provider">Built-in</div>
+                                        <div class="tool-description">经典双人对弈棋类游戏，楚河汉界！</div>
+                                    </div>
+                                    <div class="tool-card-footer">
+                                        <el-button type="primary" size="small">开始游戏</el-button>
+                                    </div>
+                                </div>
+                                <div class="tool-card" onclick="window.location.href='/games/gomoku'">
+                                    <div class="tool-card-body">
+                                        <div class="tool-icon">
+                                            <i class="material-icons">brightness_1</i>
+                                        </div>
+                                        <div class="tool-name">五子棋</div>
+                                        <div class="tool-provider">Built-in</div>
+                                        <div class="tool-description">经典双人策略棋类游戏，五子连珠定胜负！</div>
+                                    </div>
+                                    <div class="tool-card-footer">
+                                        <el-button type="primary" size="small">开始游戏</el-button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     {% else %}
                     <!-- 工具选择界面 -->
@@ -593,10 +640,18 @@
                             icon: 'play_circle'
                         },
                         {
+                            id: 'builtin_md_editor',
+                            name: 'Markdown 笔记',
+                            provider: 'Built-in',
+                            description: '浏览和编辑 Markdown 文件，支持文件夹管理',
+                            path: '/tools/md-editor',
+                            icon: 'edit_note'
+                        },
+                        {
                             id: 'builtin_aichat',
                             name: 'AI 对话',
                             provider: 'Built-in',
-                            description: '与AI助手对话！支持流式输出和联网搜索',
+                            description: '与AI助手对话，支持流式输出和深度思考',
                             path: '/board/ai-chat',
                             icon: 'smart_toy'
                         }

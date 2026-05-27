@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% include "_pwa_head.html" %}
+    <title>Markdown 笔记 - iFlyCompass</title>
+    <link rel="stylesheet" href="/assets/css/loading.css">
+    <link rel="stylesheet" href="/assets/css/material-icons.css">
+    <link rel="stylesheet" href="/assets/css/element-ui.css">
+    <link rel="stylesheet" href="/assets/css/console.css">
+    <link rel="stylesheet" href="/assets/css/md-editor.css">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载中...</div>
+    </div>
+    <div id="app">
+        <el-container class="console-container">
+            <el-aside width="64px" class="console-sidebar" :width="isCollapse ? '64px' : '200px'">
+                <div class="sidebar-header" @click="toggleCollapse">
+                    <img src="/assets/images/logo-trans-white.png" alt="Logo" class="sidebar-logo">
+                    <span v-show="!isCollapse" class="sidebar-brand">iFlyCompass</span>
+                    <i v-show="!isCollapse" class="el-icon-s-fold sidebar-toggle"></i>
+                </div>
+                <el-menu
+                    :default-active="activeMenu"
+                    class="el-menu-vertical-demo"
+                    background-color="#1a365d"
+                    text-color="#ffffff"
+                    active-text-color="#409EFF"
+                    :collapse="isCollapse"
+                    @select="handleMenuClick"
+                >
+                    <el-menu-item index="dashboard">
+                        <i class="el-icon-s-home"></i>
+                        <span slot="title">首页</span>
+                    </el-menu-item>
+                    <el-menu-item index="tools">
+                        <i class="el-icon-s-tools"></i>
+                        <span slot="title">小工具</span>
+                    </el-menu-item>
+                </el-menu>
+            </el-aside>
+            
+            <el-container>
+                <el-header class="console-header" v-show="view === 'list'">
+                    <div class="header-left">
+                        <h1>Markdown 笔记</h1>
+                    </div>
+                    <div class="header-right">
+                        <span style="color: #fff;">您好，[[ displayName ]]</span>
+                    </div>
+                </el-header>
+                
+                <el-main class="console-content" style="padding: 0; overflow: hidden;">
+                    <!-- 文件列表状态 -->
+                    <div v-if="view === 'list'" class="md-list-container">
+                        <div class="md-list-header">
+                            <div class="md-list-actions">
+                                <el-button type="primary" size="small" @click="showCreateFileDialog">
+                                    <i class="el-icon-plus"></i> 新建文件
+                                </el-button>
+                                <el-button type="success" size="small" @click="showCreateFolderDialog">
+                                    <i class="el-icon-folder-add"></i> 新建文件夹
+                                </el-button>
+                            </div>
+                            <div class="md-breadcrumb">
+                                <el-breadcrumb separator="/">
+                                    <el-breadcrumb-item @click.native="navigateToPath('')">根目录</el-breadcrumb-item>
+                                    <el-breadcrumb-item 
+                                        v-for="(part, index) in pathParts" 
+                                        :key="index"
+                                        @click.native="navigateToPath(pathParts.slice(0, index + 1).join('/'))"
+                                    >
+                                        [[ part ]]
+                                    </el-breadcrumb-item>
+                                </el-breadcrumb>
+                            </div>
+                        </div>
+                        
+                        <div class="md-list-body">
+                            <div v-if="items.length === 0" class="md-empty-state">
+                                <el-empty description="暂无文件，点击上方按钮创建"></el-empty>
+                            </div>
+                            <div v-else class="md-card-grid">
+                                <div 
+                                    v-for="item in items" 
+                                    :key="item.path"
+                                    class="md-card"
+                                    @click="handleItemClick(item)"
+                                >
+                                    <div class="md-card-icon">
+                                        <i v-if="item.type === 'folder'" class="material-icons" style="color: #e6a23c;">folder</i>
+                                        <i v-else class="material-icons" style="color: #409eff;">description</i>
+                                    </div>
+                                    <div class="md-card-title">[[ item.name ]]</div>
+                                    <div v-if="item.type === 'file'" class="md-card-preview">[[ item.preview || '无预览' ]]</div>
+                                    <div v-if="item.type === 'file'" class="md-card-meta">[[ formatDate(item.modified) ]] &middot; [[ formatSize(item.size) ]]</div>
+                                    <div v-if="item.type === 'folder'" class="md-card-meta">[[ item.item_count ]] 个项目</div>
+                                    <div class="md-card-actions" @click.stop>
+                                        <el-button type="text" size="mini" @click="showRenameDialog(item)">
+                                            <i class="el-icon-edit"></i>
+                                        </el-button>
+                                        <el-button type="text" size="mini" style="color: #f56c6c;" @click="confirmDelete(item)">
+                                            <i class="el-icon-delete"></i>
+                                        </el-button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 编辑状态 -->
+                    <div v-else class="md-editor-container">
+                        <div class="md-editor-header">
+                            <div class="md-editor-nav">
+                                <el-button type="text" @click="backToList">
+                                    <i class="el-icon-arrow-left"></i> 返回列表
+                                </el-button>
+                                <span class="md-editor-filename">[[ currentFile ? currentFile.name : '' ]]</span>
+                            </div>
+                            <div class="md-editor-actions">
+                                <el-button 
+                                    :type="isPreview ? 'primary' : 'default'" 
+                                    size="small" 
+                                    @click="togglePreview"
+                                >
+                                    <i class="el-icon-view"></i> [[ isPreview ? '编辑' : '预览' ]]
+                                </el-button>
+                                <el-button type="success" size="small" @click="saveFile" :loading="saving">
+                                    <i class="el-icon-check"></i> 保存
+                                </el-button>
+                            </div>
+                        </div>
+                        
+                        <!-- 编辑区 -->
+                        <div class="md-editor-body">
+                            <textarea 
+                                v-show="!isPreview"
+                                ref="editor"
+                                v-model="editorContent"
+                                class="md-textarea"
+                                placeholder="在此输入 Markdown 内容..."
+                                @input="onContentChange"
+                                @blur="autoSave"
+                                @touchstart="onTouchStart"
+                                @touchmove="onTouchMove"
+                            ></textarea>
+                            <div 
+                                v-show="isPreview" 
+                                ref="preview"
+                                class="md-preview"
+                                v-html="renderedContent"
+                                @touchstart="onTouchStart"
+                                @touchmove="onTouchMove"
+                            ></div>
+                        </div>
+                        
+                        <!-- 底部统一工具栏（工具按钮 + 状态信息 合一） -->
+                        <div class="md-bottom-bar" :class="{ 'keyboard-open': isKeyboardOpen }">
+                            <div class="md-bottom-main">
+                                <div v-if="!isPreview" class="md-bottom-toolbar">
+                                    <el-tooltip content="粗体" placement="top">
+                                        <el-button size="mini" @click="insertFormat('bold')">B</el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="斜体" placement="top">
+                                        <el-button size="mini" @click="insertFormat('italic')" style="font-style: italic;">I</el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="一级标题" placement="top">
+                                        <el-button size="mini" @click="insertFormat('h1')">H1</el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="二级标题" placement="top">
+                                        <el-button size="mini" @click="insertFormat('h2')">H2</el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="引用" placement="top">
+                                        <el-button size="mini" @click="insertFormat('quote')">
+                                            <i class="el-icon-s-unfold"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="代码块" placement="top">
+                                        <el-button size="mini" @click="insertFormat('code')">
+                                            <i class="el-icon-c-scale-to-original"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="无序列表" placement="top">
+                                        <el-button size="mini" @click="insertFormat('ul')">
+                                            <i class="el-icon-s-unfold" style="transform: rotate(90deg);"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="有序列表" placement="top">
+                                        <el-button size="mini" @click="insertFormat('ol')">1.</el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="链接" placement="top">
+                                        <el-button size="mini" @click="insertFormat('link')">
+                                            <i class="el-icon-link"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="图片" placement="top">
+                                        <el-button size="mini" @click="insertFormat('image')">
+                                            <i class="el-icon-picture"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="分割线" placement="top">
+                                        <el-button size="mini" @click="insertFormat('hr')">&mdash;</el-button>
+                                    </el-tooltip>
+                                </div>
+                                <div class="md-bottom-status">
+                                    <span>字符数: [[ editorContent.length ]]</span>
+                                    <span>[[ saveStatus ]]</span>
+                                    <span v-if="autoSaveTimer">自动保存中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </el-main>
+            </el-container>
+        </el-container>
+        
+        <!-- 新建文件对话框 -->
+        <el-dialog title="新建文件" :visible.sync="createFileDialog" width="400px">
+            <el-input v-model="newFileName" placeholder="输入文件名（如：笔记.md）" @keyup.enter.native="createFile"></el-input>
+            <span slot="footer">
+                <el-button @click="createFileDialog = false">取消</el-button>
+                <el-button type="primary" @click="createFile" :loading="creating">创建</el-button>
+            </span>
+        </el-dialog>
+        
+        <!-- 新建文件夹对话框 -->
+        <el-dialog title="新建文件夹" :visible.sync="createFolderDialog" width="400px">
+            <el-input v-model="newFolderName" placeholder="输入文件夹名称" @keyup.enter.native="createFolder"></el-input>
+            <span slot="footer">
+                <el-button @click="createFolderDialog = false">取消</el-button>
+                <el-button type="primary" @click="createFolder" :loading="creating">创建</el-button>
+            </span>
+        </el-dialog>
+        
+        <!-- 重命名对话框 -->
+        <el-dialog title="重命名" :visible.sync="renameDialog" width="400px">
+            <el-input v-model="renameNewName" placeholder="输入新名称" @keyup.enter.native="renameItem"></el-input>
+            <span slot="footer">
+                <el-button @click="renameDialog = false">取消</el-button>
+                <el-button type="primary" @click="renameItem" :loading="renaming">重命名</el-button>
+            </span>
+        </el-dialog>
+    </div>
+
+    <script src="/assets/js/vue.min.js"></script>
+    <script src="/assets/js/element-ui.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    isCollapse: true,
+                    activeMenu: 'tools',
+                    displayName: '{{ current_user.display_name }}',
+                    view: 'list',
+                    currentPath: '',
+                    items: [],
+                    currentFile: null,
+                    editorContent: '',
+                    originalContent: '',
+                    isPreview: false,
+                    saving: false,
+                    saveStatus: '',
+                    autoSaveTimer: null,
+                    createFileDialog: false,
+                    createFolderDialog: false,
+                    renameDialog: false,
+                    newFileName: '',
+                    newFolderName: '',
+                    renameNewName: '',
+                    renameTarget: null,
+                    creating: false,
+                    renaming: false,
+                    isKeyboardOpen: false,
+                    touchStartY: 0
+                };
+            },
+            computed: {
+                pathParts() {
+                    if (!this.currentPath) return [];
+                    return this.currentPath.split('/').filter(Boolean);
+                },
+                renderedContent() {
+                    var text = this.editorContent || '';
+                    if (typeof marked !== 'undefined' && marked.parse) {
+                        try {
+                            return marked.parse(text);
+                        } catch (e) {
+                            // fallback to simple render
+                        }
+                    }
+                    return this.simpleRender(text);
+                }
+            },
+            mounted() {
+                this.loadFiles();
+                this.initAutoSave();
+                this.initKeyboardDetection();
+            },
+            methods: {
+                loadFiles() {
+                    fetch('/api/md/files?path=' + encodeURIComponent(this.currentPath))
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.error) {
+                                this.$message.error(data.error);
+                            } else {
+                                this.items = data.items || [];
+                            }
+                        })
+                        .catch(() => this.$message.error('加载文件列表失败'));
+                },
+                handleItemClick(item) {
+                    if (item.type === 'folder') {
+                        this.currentPath = item.path;
+                        this.loadFiles();
+                    } else {
+                        this.openFile(item);
+                    }
+                },
+                navigateToPath(path) {
+                    this.currentPath = path;
+                    this.loadFiles();
+                },
+                openFile(item) {
+                    fetch('/api/md/file?path=' + encodeURIComponent(item.path))
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.error) {
+                                this.$message.error(data.error);
+                            } else {
+                                this.currentFile = item;
+                                this.editorContent = data.content;
+                                this.originalContent = data.content;
+                                this.view = 'edit';
+                                this.isPreview = false;
+                                this.saveStatus = '已加载';
+                            }
+                        })
+                        .catch(() => this.$message.error('读取文件失败'));
+                },
+                backToList() {
+                    if (this.editorContent !== this.originalContent) {
+                        this.$confirm('有未保存的更改，确定要返回吗？', '提示', {
+                            confirmButtonText: '确定',
+                            cancelButtonText: '取消',
+                            type: 'warning'
+                        }).then(() => {
+                            this.view = 'list';
+                            this.currentFile = null;
+                            this.editorContent = '';
+                            this.originalContent = '';
+                            this.loadFiles();
+                        }).catch(() => {});
+                    } else {
+                        this.view = 'list';
+                        this.currentFile = null;
+                        this.editorContent = '';
+                        this.originalContent = '';
+                        this.loadFiles();
+                    }
+                },
+                saveFile() {
+                    if (!this.currentFile) return;
+                    this.saving = true;
+                    fetch('/api/md/file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            path: this.currentFile.path,
+                            content: this.editorContent
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.originalContent = this.editorContent;
+                            this.saveStatus = '已保存 ✓ ' + new Date().toLocaleTimeString();
+                            this.$message.success('保存成功');
+                        } else {
+                            this.$message.error(data.error || '保存失败');
+                        }
+                    })
+                    .catch(() => this.$message.error('保存失败'))
+                    .finally(() => this.saving = false);
+                },
+                autoSave() {
+                    if (this.editorContent !== this.originalContent && this.currentFile) {
+                        var textarea = this.$refs.editor;
+                        var start = textarea ? textarea.selectionStart : 0;
+                        var end = textarea ? textarea.selectionEnd : 0;
+                        this.saveFile().then(() => {
+                            if (textarea && document.activeElement === textarea) {
+                                this.$nextTick(function() {
+                                    textarea.setSelectionRange(start, end);
+                                });
+                            }
+                        });
+                    }
+                },
+                initAutoSave() {
+                    // 防抖自动保存由 onContentChange 触发
+                },
+                onContentChange() {
+                    if (this.editorContent !== this.originalContent) {
+                        this.saveStatus = '未保存';
+                    }
+                    clearTimeout(this.autoSaveTimer);
+                    var self = this;
+                    this.autoSaveTimer = setTimeout(function() {
+                        self.autoSave();
+                    }, 3000);
+                },
+                togglePreview() {
+                    this.isPreview = !this.isPreview;
+                },
+                insertFormat(type) {
+                    const textarea = this.$refs.editor;
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const text = this.editorContent;
+                    const selected = text.substring(start, end);
+                    let insertion = '';
+                    let cursorOffset = 0;
+                    
+                    switch(type) {
+                        case 'bold':
+                            insertion = selected ? '**' + selected + '**' : '**';
+                            cursorOffset = 0;
+                            break;
+                        case 'italic':
+                            insertion = selected ? '*' + selected + '*' : '*';
+                            cursorOffset = 0;
+                            break;
+                        case 'h1':
+                            insertion = selected ? '# ' + selected : '# ';
+                            cursorOffset = 0;
+                            break;
+                        case 'h2':
+                            insertion = selected ? '## ' + selected : '## ';
+                            cursorOffset = 0;
+                            break;
+                        case 'quote':
+                            insertion = selected ? '> ' + selected : '> ';
+                            cursorOffset = 0;
+                            break;
+                        case 'code':
+                            if (selected) {
+                                insertion = '```\n' + selected + '\n```';
+                            } else {
+                                insertion = '```\n\n```';
+                                cursorOffset = 0;
+                            }
+                            break;
+                        case 'ul':
+                            if (selected) {
+                                insertion = selected.split('\n').map(function(l) { return '- ' + l; }).join('\n');
+                            } else {
+                                insertion = '- ';
+                                cursorOffset = 0;
+                            }
+                            break;
+                        case 'ol':
+                            if (selected) {
+                                insertion = selected.split('\n').map(function(l, i) { return (i+1) + '. ' + l; }).join('\n');
+                            } else {
+                                insertion = '1. ';
+                                cursorOffset = 0;
+                            }
+                            break;
+                        case 'link':
+                            insertion = selected ? '[' + selected + '](url)' : '[](url)';
+                            cursorOffset = 0;
+                            break;
+                        case 'image':
+                            insertion = '![](url)';
+                            cursorOffset = 0;
+                            break;
+                        case 'hr':
+                            insertion = '\n---\n';
+                            cursorOffset = 0;
+                            break;
+                    }
+                    
+                    this.editorContent = text.substring(0, start) + insertion + text.substring(end);
+                    this.$nextTick(function() {
+                        textarea.focus();
+                        var newCursor = start + insertion.length + cursorOffset;
+                        textarea.setSelectionRange(newCursor, newCursor);
+                    });
+                    this.saveStatus = '未保存';
+                },
+                showCreateFileDialog() {
+                    this.newFileName = '';
+                    this.createFileDialog = true;
+                },
+                showCreateFolderDialog() {
+                    this.newFolderName = '';
+                    this.createFolderDialog = true;
+                },
+                createFile() {
+                    if (!this.newFileName) return;
+                    var name = this.newFileName;
+                    if (!name.endsWith('.md')) name += '.md';
+                    var path = this.currentPath ? this.currentPath + '/' + name : name;
+                    
+                    this.creating = true;
+                    fetch('/api/md/file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: path, content: '', action: 'create' })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(data => {
+                        if (data.success) {
+                            this.$message.success('创建成功');
+                            this.createFileDialog = false;
+                            this.loadFiles();
+                            var self = this;
+                            setTimeout(function() {
+                                var newItem = self.items.find(function(i) { return i.path === path; });
+                                if (newItem) self.openFile(newItem);
+                            }, 300);
+                        } else {
+                            this.$message.error(data.error || '创建失败');
+                        }
+                    })
+                    .catch(() => this.$message.error('创建失败'))
+                    .finally(() => this.creating = false);
+                },
+                createFolder() {
+                    if (!this.newFolderName) return;
+                    var path = this.currentPath ? this.currentPath + '/' + this.newFolderName : this.newFolderName;
+                    
+                    this.creating = true;
+                    fetch('/api/md/folder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: path })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(data => {
+                        if (data.success) {
+                            this.$message.success('创建成功');
+                            this.createFolderDialog = false;
+                            this.loadFiles();
+                        } else {
+                            this.$message.error(data.error || '创建失败');
+                        }
+                    })
+                    .catch(() => this.$message.error('创建失败'))
+                    .finally(() => this.creating = false);
+                },
+                showRenameDialog(item) {
+                    this.renameTarget = item;
+                    this.renameNewName = item.name;
+                    this.renameDialog = true;
+                },
+                renameItem() {
+                    if (!this.renameTarget || !this.renameNewName) return;
+                    var oldPath = this.renameTarget.path;
+                    var parentPath = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+                    var newPath = parentPath ? parentPath + '/' + this.renameNewName : this.renameNewName;
+                    
+                    this.renaming = true;
+                    fetch('/api/md/file', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ old_path: oldPath, new_path: newPath })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(data => {
+                        if (data.success) {
+                            this.$message.success('重命名成功');
+                            this.renameDialog = false;
+                            this.loadFiles();
+                        } else {
+                            this.$message.error(data.error || '重命名失败');
+                        }
+                    })
+                    .catch(() => this.$message.error('重命名失败'))
+                    .finally(() => this.renaming = false);
+                },
+                confirmDelete(item) {
+                    this.$confirm('确定要删除 "' + item.name + '" 吗？', '确认删除', {
+                        confirmButtonText: '删除',
+                        cancelButtonText: '取消',
+                        type: 'warning',
+                        confirmButtonClass: 'el-button--danger'
+                    }).then(() => {
+                        fetch('/api/md/file?path=' + encodeURIComponent(item.path), {
+                            method: 'DELETE'
+                        })
+                        .then(function(r) { return r.json(); })
+                        .then(data => {
+                            if (data.success) {
+                                this.$message.success('删除成功');
+                                this.loadFiles();
+                            } else {
+                                this.$message.error(data.error || '删除失败');
+                            }
+                        })
+                        .catch(() => this.$message.error('删除失败'));
+                    }).catch(() => {});
+                },
+                formatDate(iso) {
+                    if (!iso) return '';
+                    var d = new Date(iso);
+                    return d.toLocaleDateString('zh-CN') + ' ' + d.toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
+                },
+                formatSize(bytes) {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                },
+                simpleRender(text) {
+                    if (!text) return '';
+                    return text
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                        .replace(/^- (.+)$/gm, '<li>$1</li>')
+                        .replace(/`(.+?)`/g, '<code>$1</code>')
+                        .replace(/\n/g, '<br>');
+                },
+                onTouchStart(e) {
+                    this.touchStartY = e.touches[0].clientY;
+                },
+                onTouchMove(e) {
+                    // 手势劫持：阻止事件冒泡，防止浏览器默认行为（下拉刷新、回弹）干扰编辑器
+                    e.stopPropagation();
+                    var el = this.$refs.editor;
+                    if (el && document.activeElement === el) {
+                        // 在 textarea 边界时阻止默认行为，防止页面整体被拉动
+                        var scrollTop = el.scrollTop;
+                        var scrollHeight = el.scrollHeight;
+                        var clientHeight = el.clientHeight;
+                        var deltaY = e.touches[0].clientY - this.touchStartY;
+                        if ((scrollTop <= 0 && deltaY > 0) || (scrollTop + clientHeight >= scrollHeight && deltaY < 0)) {
+                            e.preventDefault();
+                        }
+                        this.touchStartY = e.touches[0].clientY;
+                    }
+                },
+                initKeyboardDetection() {
+                    // 检测安卓虚拟键盘抬起：通过 Visual Viewport API（最准）或 window resize 回退
+                    var self = this;
+                    if (window.visualViewport) {
+                        window.visualViewport.addEventListener('resize', function() {
+                            var currentHeight = window.visualViewport.height;
+                            var threshold = window.innerHeight * 0.25;
+                            self.isKeyboardOpen = window.innerHeight - currentHeight > threshold;
+                        });
+                    } else {
+                        var refHeight = window.innerHeight;
+                        window.addEventListener('resize', function() {
+                            var threshold = refHeight * 0.25;
+                            self.isKeyboardOpen = refHeight - window.innerHeight > threshold;
+                        });
+                    }
+                },
+                toggleCollapse() {
+                    this.isCollapse = !this.isCollapse;
+                },
+                handleMenuClick(key) {
+                    if (key === 'dashboard') window.location.href = '/board';
+                    else if (key === 'tools') window.location.href = '/board/tools';
+                }
+            }
+        });
+    </script>
+    <script src="/assets/js/offline-handler.js"></script>
+    <script src="/assets/js/loading.js"></script>
+    {% include "_pwa_register.html" %}
+</body>
+</html>

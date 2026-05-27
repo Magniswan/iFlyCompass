@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小游戏 - iFlyCompass</title>
+    <link rel="stylesheet" href="/assets/css/loading.css">
+    <link rel="stylesheet" href="/assets/css/material-icons.css">
+    <link rel="stylesheet" href="/assets/css/element-ui.css">
+    <link rel="stylesheet" href="/assets/css/console.css">
+    <link rel="stylesheet" href="/assets/css/games.css">
+    <style>
+        .user-menu-container {
+            position: relative;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .user-info:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .user-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            overflow: hidden;
+        }
+        .user-dropdown-header {
+            padding: 12px 16px;
+            background: #f5f7fa;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        .user-dropdown-header .display-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        .user-dropdown-header .username-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 2px;
+        }
+        .user-dropdown-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            color: #333;
+        }
+        .user-dropdown-item:hover {
+            background-color: #f5f7fa;
+        }
+        .user-dropdown-divider {
+            height: 1px;
+            background-color: #e8e8e8;
+            margin: 4px 0;
+        }
+        .user-dropdown-item.logout-item {
+            color: #ff4d4f;
+        }
+        .user-dropdown-item.logout-item:hover {
+            background-color: #fff1f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载中...</div>
+    </div>
+    <div id="app">
+        <el-container class="console-container">
+            <el-aside width="64px" class="console-sidebar" :width="isCollapse ? '64px' : '200px'">
+                <div class="sidebar-header" @click="toggleCollapse">
+                    <img src="/assets/images/logo-trans-white.png" alt="Logo" class="sidebar-logo">
+                    <span v-show="!isCollapse" class="sidebar-brand">iFlyCompass</span>
+                    <i v-show="!isCollapse" class="el-icon-s-fold sidebar-toggle"></i>
+                </div>
+                <el-menu
+                    :default-active="activeMenu"
+                    class="el-menu-vertical-demo"
+                    background-color="#1a365d"
+                    text-color="#ffffff"
+                    active-text-color="#409EFF"
+                    :collapse="isCollapse"
+                    @select="handleMenuClick"
+                >
+                    <el-menu-item index="dashboard">
+                        <i class="el-icon-s-home"></i>
+                        <span slot="title">首页</span>
+                    </el-menu-item>
+                    <el-menu-item index="tools">
+                        <i class="el-icon-s-tools"></i>
+                        <span slot="title">小工具</span>
+                    </el-menu-item>
+                    <el-menu-item index="games" :class="{ active: activeMenu === 'games' }">
+                        <i class="el-icon-s-marketing"></i>
+                        <span slot="title">小游戏</span>
+                    </el-menu-item>
+                    <el-menu-item index="chat">
+                        <i class="el-icon-chat-dot-round"></i>
+                        <span slot="title">聊天室</span>
+                    </el-menu-item>
+                    <el-menu-item index="users" v-if="isAdmin">
+                        <i class="el-icon-s-custom"></i>
+                        <span slot="title">用户管理</span>
+                    </el-menu-item>
+                    <el-menu-item index="settings" v-if="isAdmin">
+                        <i class="el-icon-setting"></i>
+                        <span slot="title">系统设置</span>
+                    </el-menu-item>
+                </el-menu>
+            </el-aside>
+            
+            <el-container>
+                <el-header class="console-header">
+                    <div class="header-left">
+                        <h1>小游戏</h1>
+                    </div>
+                    <div class="header-right">
+                        <div class="user-menu-container" @click="toggleUserMenu">
+                            <span class="user-info">
+                                您好，[[ displayName ]]
+                                <i class="el-icon-arrow-down" :class="{ 'rotated': userMenuVisible }"></i>
+                            </span>
+                            <div class="user-dropdown-menu" v-show="userMenuVisible" @click.stop>
+                                <div class="user-dropdown-header">
+                                    <div class="display-name">[[ displayName ]]</div>
+                                    <div class="username-label">@[[ username ]]</div>
+                                </div>
+                                <div class="user-dropdown-item" @click="openProfileDialog">
+                                    <i class="el-icon-user"></i>
+                                    <span>个人设置</span>
+                                </div>
+                                <div class="user-dropdown-divider"></div>
+                                <div class="user-dropdown-item logout-item" @click="confirmLogout">
+                                    <i class="el-icon-switch-button"></i>
+                                    <span>退出登录</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </el-header>
+                
+                <el-main class="console-content">
+                    <div class="game-hall">
+                        <div class="game-hall-header">
+                            <h2>选择游戏</h2>
+                        </div>
+                        <div class="game-cards">
+                            <el-card class="game-card" shadow="hover" @click.native="goToGame('doudizhu')">
+                                <div class="game-card-body">
+                                    <i class="material-icons game-card-icon" style="color: #e6a23c;">style</i>
+                                    <div class="game-card-title">斗地主</div>
+                                    <div class="game-card-desc">3人联机对战，经典扑克游戏</div>
+                                    <el-tag size="small" type="warning">3人</el-tag>
+                                </div>
+                            </el-card>
+                            <el-card class="game-card" shadow="hover" @click.native="goToGame('chess')">
+                                <div class="game-card-body">
+                                    <i class="material-icons game-card-icon" style="color: #333;">grid_on</i>
+                                    <div class="game-card-title">象棋</div>
+                                    <div class="game-card-desc">2人联机对弈，传统中国象棋</div>
+                                    <el-tag size="small">2人</el-tag>
+                                </div>
+                            </el-card>
+                            <el-card class="game-card" shadow="hover" @click.native="goToGame('gomoku')">
+                                <div class="game-card-body">
+                                    <i class="material-icons game-card-icon" style="color: #409eff;">apps</i>
+                                    <div class="game-card-title">五子棋</div>
+                                    <div class="game-card-desc">2人联机对弈，15×15 棋盘</div>
+                                    <el-tag size="small" type="info">2人</el-tag>
+                                </div>
+                            </el-card>
+                        </div>
+                        
+                        <div class="recent-records">
+                            <h3>最近对局</h3>
+                            <el-table :data="recentRecords" size="small" style="width: 100%" v-loading="recordsLoading">
+                                <el-table-column prop="game_type_name" label="游戏" width="100"></el-table-column>
+                                <el-table-column prop="result_str" label="结果" width="200"></el-table-column>
+                                <el-table-column prop="ended_at_str" label="时间"></el-table-column>
+                            </el-table>
+                            <el-empty v-if="recentRecords.length === 0 && !recordsLoading" description="暂无对局记录"></el-empty>
+                        </div>
+                    </div>
+                </el-main>
+            </el-container>
+        </el-container>
+        
+        <!-- 个人设置对话框 -->
+        <el-dialog title="个人设置" :visible.sync="profileDialogVisible" width="450px">
+            <el-form :model="profileForm" label-width="80px">
+                <el-form-item label="用户名">
+                    <el-input :value="username" disabled></el-input>
+                </el-form-item>
+                <el-form-item label="昵称">
+                    <el-input v-model="profileForm.nickname" placeholder="请输入昵称"></el-input>
+                </el-form-item>
+            </el-form>
+            <span slot="footer" class="dialog-footer">
+                <el-button @click="profileDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="saveProfile">保存</el-button>
+            </span>
+        </el-dialog>
+    </div>
+
+    <script src="/assets/js/vue.min.js"></script>
+    <script src="/assets/js/element-ui.js"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            delimiters: ['[[', ']]'],
+            data: {
+                isCollapse: {% if sidebar_expanded %}false{% else %}true{% endif %},
+                activeMenu: 'games',
+                displayName: '{{ current_user.display_name }}',
+                username: '{{ current_user.username }}',
+                nickname: '{{ current_user.nickname or "" }}',
+                isAdmin: {% if current_user.is_admin or current_user.is_super_admin %}true{% else %}false{% endif %},
+                userMenuVisible: false,
+                profileDialogVisible: false,
+                profileForm: { nickname: '' },
+                recentRecords: [],
+                recordsLoading: false
+            },
+            mounted: function() {
+                this.loadRecentRecords();
+            },
+            methods: {
+                toggleCollapse: function() {
+                    this.isCollapse = !this.isCollapse;
+                },
+                toggleUserMenu: function() {
+                    this.userMenuVisible = !this.userMenuVisible;
+                },
+                handleMenuClick: function(key) {
+                    this.userMenuVisible = false;
+                    if (key === 'dashboard') {
+                        window.location.href = '/board';
+                    } else if (key === 'tools') {
+                        window.location.href = '/board/tools';
+                    } else if (key === 'games') {
+                        window.location.href = '/board/games';
+                    } else if (key === 'users') {
+                        window.location.href = '/board/users';
+                    } else if (key === 'chat') {
+                        window.location.href = '/board/chat';
+                    } else if (key === 'settings') {
+                        window.location.href = '/board/settings';
+                    }
+                },
+                goToGame: function(game) {
+                    window.location.href = '/games/' + game;
+                },
+                loadRecentRecords: function() {
+                    var self = this;
+                    self.recordsLoading = true;
+                    fetch('/api/game/records?limit=10')
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            var typeNames = { doudizhu: '斗地主', chess: '象棋', gomoku: '五子棋' };
+                            self.recentRecords = (data.records || []).map(function(r) {
+                                var winners = r.winner_names || [];
+                                return {
+                                    game_type_name: typeNames[r.game_type] || r.game_type,
+                                    result_str: winners.length > 0 ? winners.join(', ') + ' 获胜' : '和棋',
+                                    ended_at_str: r.ended_at ? new Date(r.ended_at).toLocaleString() : '-'
+                                };
+                            });
+                            self.recordsLoading = false;
+                        })
+                        .catch(function(e) {
+                            console.error('加载战绩失败:', e);
+                            self.recordsLoading = false;
+                        });
+                },
+                openProfileDialog: function() {
+                    this.userMenuVisible = false;
+                    this.profileForm.nickname = this.nickname;
+                    this.profileDialogVisible = true;
+                },
+                saveProfile: function() {
+                    var self = this;
+                    fetch('/api/user/profile', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.profileForm)
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.error) {
+                            self.$message.error(data.error);
+                        } else {
+                            self.$message.success('保存成功');
+                            self.profileDialogVisible = false;
+                            if (data.display_name) {
+                                self.displayName = data.display_name;
+                                self.nickname = self.profileForm.nickname;
+                            }
+                        }
+                    })
+                    .catch(function(error) {
+                        self.$message.error('保存失败');
+                    });
+                },
+                confirmLogout: function() {
+                    this.userMenuVisible = false;
+                    this.$confirm('确定要退出登录吗？', '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(function() {
+                        window.location.href = '/logout';
+                    }).catch(function() {});
+                }
+            }
+        });
+    </script>
+    <script src="/assets/js/loading.js"></script>
+</body>
+</html>

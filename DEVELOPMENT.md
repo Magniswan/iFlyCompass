@@ -2,6 +2,240 @@
 
 ## 版本更新
 
+### REL3.0.0
+
+**Markdown 笔记 + AI 对话体验大优化 + 联机小游戏**
+
+#### 一、联机小游戏模块
+
+新增斗地主、象棋、五子棋三个联机小游戏，每个游戏独立 Blueprint 模块，独立 Socket.IO namespace。
+
+- **斗地主（`modules/game_doudizhu/`）**：
+  - 3人真人联机，无 AI 填充
+  - 完整牌型系统：单张/对子/三张/三带一/三带二/顺子/连对/炸弹/王炸
+  - 叫分抢地主：1/2/3分或不叫，最高分者获底牌
+  - 出牌验证：牌型合法性、手牌存在性、能否压过上家
+  - 胜负判定：地主先出完则地主胜，农民先出完则农民共赢
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/doudizhu.html`, `assets/js/doudizhu.js`
+
+- **象棋（`modules/game_chess/`）**：
+  - 2人真人联机，Canvas 绘制传统 9×10 棋盘
+  - 完整走法验证：帅/将（九宫格）、仕/士（斜线）、相/象（田字格/不过河）、马（日字/不蹩腿）、车（直线/不越子）、炮（吃子隔一）、兵/卒（过河前后规则）
+  - 将军/将死/困毙自动检测
+  - 支持认输、求和/接受/拒绝
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/chess.html`, `assets/js/chess.js`
+
+- **五子棋（`modules/game_gomoku/`）**：
+  - 2人真人联机，Canvas 绘制 15×15 棋盘
+  - 四向五连判定（横/竖/对角线）
+  - 棋盘满自动判和
+  - 支持认输、求和
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/gomoku.html`, `assets/js/gomoku.js`
+
+- **通用游戏功能**：
+  - 游戏大厅（`templates/games.html`）：三个游戏卡片 + 最近对局列表
+  - 房间内聊天：系统消息 + 玩家消息，独立消息面板
+  - 战绩统计：`models/game_stats.py` 新增 `GameRecord` + `UserGameStats`
+  - 排行榜 API：`/api/game/leaderboard/<game_type>`
+  - 房间密码保护：创建时可设密码，加入需验证
+  - 共享资源：`assets/css/games.css`, `assets/js/game_socket.js`
+
+#### 二、Markdown 笔记编辑器全面优化
+
+- **编辑状态沉浸式体验**：
+  - 进入编辑状态后，顶部 "Markdown 笔记" 大标题自动隐藏，编辑区获得最大化可视空间
+  - 工具栏从编辑区**上方移至下方**，避免安卓虚拟键盘弹出时把工具栏顶出屏幕
+- **自动保存不中断编辑**：
+  - 移除每 30 秒强制轮询保存，改为**防抖自动保存**（停止输入 3 秒后触发）
+  - 保存前记录光标位置，保存完成后自动恢复，用户当前输入完全不受影响
+- **修复安卓预览空白**：
+  - 新增 `simpleRender()` 降级渲染方案。即使 `marked.js` 在某些安卓浏览器上加载失败，预览区仍可用基础 HTML 渲染 Markdown
+  - 同时修复了部分安卓设备点击预览后内容为空的问题
+- **取消格式工具示例文字与光标劫持**：
+  - 点击 H1/H2/粗体/斜体等按钮时，不再插入"标题""粗体"等示例占位文字
+  - 改为只插入纯标记符（`# `、`**`、`*` 等），光标直接停在标记末尾，用户可自由删除或继续输入
+- **触屏滑动体验优化**：
+  - `textarea` 和预览区增加 `-webkit-overflow-scrolling: touch`、`touch-action: pan-y`、`overscroll-behavior: contain`
+  - 增加 `touchmove` 手势劫持，阻止事件冒泡到父层，确保在安卓设备上可流畅独立滚动
+
+#### 三、AI 对话体验优化
+
+- **进入页面即新建对话**：
+  - 进入 AI 对话页面时，侧边栏对话列表默认收起，并自动创建一个新的空白对话
+  - 无需手动点"新对话"即可直接开始聊天
+- **AI 生成时不打断阅读历史**：
+  - 新增 `isNearBottom()` 智能检测。AI 流式输出和回复结束时，仅在用户当前处于底部 150px 范围内时才自动滚动
+  - 若用户正在向上翻阅历史记录，新内容生成不会强制把他拉回底部
+- **一键退出按钮**：
+  - 顶栏左侧新增显眼的 **× 关闭图标按钮**，无需展开侧边栏、无需点任何下拉菜单，直接点击即可返回小工具页面
+- **触屏滑动优化**：
+  - 对话消息区域增加 `-webkit-overflow-scrolling: touch` 和 `overscroll-behavior: contain`，提升移动端滚动体验
+- **深度思考开关 Bug 修复**：
+  - 修复点击"深度思考"按钮无响应的问题
+  - 将内联表达式 `@click="supportsThinking && (enableThinking = !enableThinking)"` 改为方法调用 `@click="toggleThinking"`
+  - 新增 `toggleThinking()` 方法，确保在支持深度思考的模型上能正常开关
+- **手势劫持**：
+  - 为 `.chat-body` 添加 `@touchmove="onChatTouchMove"`，阻止触摸事件冒泡到 document，防止下拉刷新和回弹
+  - 为 `.chat-footer` 和输入框 `textarea` 添加 `@touchmove="onInputTouchMove"`，防止键盘弹出时页面异常滚动
+  - 补充 CSS：`touch-action: pan-y` 到 `.chat-body` 和 `.input-container`
+
+#### 四、手势劫持与交互修复
+
+- **Markdown 笔记底部栏重构**：
+  - 将原本分开的 **工具栏**（`md-toolbar`）和 **状态栏**（`md-status-bar`）合并为统一的 `md-bottom-bar`
+  - 工具按钮在左侧，状态信息（字符数 / 已加载 / 自动保存中）在右侧，保持原有按钮和字体大小不变
+  - 使用 `justify-content: space-between` 排成一行，塞到最下一行
+- **Markdown 笔记手势劫持**：
+  - `textarea` 和 `.md-preview` 都绑定 `@touchstart` / `@touchmove` 事件
+  - 在 `onTouchMove` 中阻止事件冒泡，并在滚动到边界时 `e.preventDefault()`，防止页面整体被拉动（橡皮筋效果）
+  - 为 `.md-editor-body`、`.md-textarea`、`.md-preview` 添加 `touch-action: pan-y` 和 `overscroll-behavior: contain`
+- **Markdown 笔记安卓虚拟键盘适配**：
+  - 新增 `initKeyboardDetection()` 方法，优先使用 `Visual Viewport API` 检测可视区域高度变化；不支持则回退到 `window.resize`
+  - 当可视高度缩小超过屏幕高度的 25% 时，判定为键盘抬起，给 `md-bottom-bar` 添加 `keyboard-open` 类
+  - CSS 中 `.md-bottom-bar.keyboard-open { display: none; }` 实现隐藏（字符数、已加载等字样在键盘抬起时不显示）
+- **代码变更清单**：
+  - `templates/ai_chat.html`：修复深度思考开关点击事件、添加手势劫持事件处理器
+  - `templates/md_editor.html`：底部栏重构为统一 `md-bottom-bar`、添加手势劫持和键盘检测逻辑
+  - `assets/css/md-editor.css`：重写底部栏样式、添加 `keyboard-open` 隐藏规则
+
+#### 五、管理员一键退出所有人登录
+
+- **功能概述**：管理员可一键强制所有其他在线用户退出登录，无需修改任何用户密码。被退出的用户在下一次请求时会因会话版本不匹配而被视为未登录，自动重定向到登录页。
+- **实现原理**：
+  - 复用现有的 `session_version` 会话版本控制机制
+  - 遍历所有用户（排除当前操作的管理员自身），对每个用户调用 `invalidate_all_sessions()` 递增其 `session_version`
+  - Flask-Login 的 `load_user` 钩子会在每次请求时检查 session 中的 `_session_version` 是否与数据库一致，不一致则返回 `None`，实现"踢下线"效果
+- **权限控制**：
+  - 仅管理员（`is_admin`）或超级管理员（`is_super_admin`）可调用
+  - 普通用户调用返回 403 权限不足
+- **前端入口**：
+  - **用户管理页面**（`templates/user_management.html`）：在"添加用户"按钮旁新增红色危险风格按钮"一键退出所有人登录"，带二次确认对话框和加载状态
+  - **系统设置页面**（`templates/system_settings.html`）：在"安全设置" Tab 下新增"会话管理"区块，包含功能说明和"执行"按钮
+- **API 设计**：
+  - `POST /api/admin/logout-all-users`
+  - 无需参数，使用当前登录用户身份
+  - 返回：`{success: true, message: "已强制 N 个用户退出登录", logout_count: N}`
+- **代码变更清单**：
+  - `modules/auth/api.py`：新增 `api_admin_logout_all_users()` 端点
+  - `templates/user_management.html`：新增按钮、确认对话框、`logoutAllUsers()` 方法
+  - `templates/system_settings.html`：新增"会话管理"区块、按钮和方法
+
+#### 六、联机小游戏 Bug 修复
+
+- **斗地主叫分逻辑修复**：
+  - **问题**：三人叫分完成后，若有玩家叫分（`current_bid > 0`），`landlord` 字段未被正确设置，导致底牌发放时引用 `None` 索引，引发服务器错误
+  - **根本原因**：`_can_start_bidding()` 函数中，当 `bid_count >= 3` 且 `current_bid > 0` 时，代码仅执行 `pass`，未将 `bidder` 赋值给 `landlord`
+  - **修复**：将 `pass` 改为 `gs['landlord'] = gs['bidder']`，确保地主正确确定
+  - **影响文件**：`modules/game_doudizhu/websocket.py`
+
+- **小游戏退出房间问题修复**：
+  - **问题**：玩家通过侧边栏导航（如点击"首页"、"小游戏"等）离开游戏页面时，未发送 `leave_room` 事件，玩家仍留在房间中，房间不会自动解散
+  - **根本原因**：`handleMenuClick` 方法直接执行页面跳转，未先调用 `goBack()` 触发 Socket.IO 离开事件
+  - **修复**：在 `handleMenuClick` 开头添加判断，若当前在房间中则先调用 `goBack()` 离开房间，再执行页面跳转
+  - **影响文件**：`assets/js/doudizhu.js`、`assets/js/gomoku.js`、`assets/js/chess.js`
+
+- **斗地主出牌验证失败牌被吞修复**：
+  - **问题**：玩家点击"出牌"按钮后，前端立即从手牌中移除选中的牌再发送请求；若服务端验证失败（牌型不合法、压不过上家、手牌不足等），这些牌不会自动回到手中，导致牌"消失"
+  - **根本原因**：`playCards()` 方法在 `socket.emit()` 之前就修改了 `myCards` 和 `selectedCards`，而 `error` 事件不会回滚手牌
+  - **修复**：`playCards()` 不再提前移除手牌，改为仅在收到服务端 `cards_played` 确认且 `data.seat === mySeat` 时才真正移除；服务端验证失败时手牌和选中状态保持不变
+  - **影响文件**：`assets/js/doudizhu.js`
+
+### REL2.5.5
+
+**Markdown 笔记工具 + 版本更新**
+
+#### 一、Markdown 笔记工具
+
+- **新增 `modules/md/` Markdown 编辑器模块**：
+  - 提供 Markdown 文件管理编辑工具，位于 `/tools/md-editor`
+  - 支持文件夹嵌套结构，文件列表卡片网格展示（响应式 4/3/2 列）
+  - 单栏编辑 + 预览切换模式（使用 marked.js 渲染），非双栏
+  - 格式工具栏：粗体、斜体、H1、H2、引用、代码块、列表、链接、图片、分割线
+  - 自动保存（30秒间隔 + 失焦保存）+ 手动保存 + Ctrl+S 快捷键
+  - 返回列表时未保存内容弹出确认对话框
+  - 面包屑导航，支持点击进入子文件夹和返回上级
+  - 右键（悬停）操作：重命名、删除
+- **新增 API — 路径前缀 `/api/md/`**：
+  - `GET /api/md/files?path=` — 获取目录下文件和文件夹列表
+  - `GET /api/md/file?path=` — 读取文件内容
+  - `POST /api/md/file` — 保存/创建文件（支持 `action: create`）
+  - `POST /api/md/folder` — 创建新文件夹
+  - `DELETE /api/md/file?path=` — 删除文件/空文件夹
+  - `PUT /api/md/file` — 重命名文件/文件夹
+- **安全防护**：
+  - 路径穿越防护：`os.path.abspath` + `os.path.commonpath` 验证，确保在 `instance/md/` 范围内
+  - 仅允许 `.md` 文件操作
+  - 文件名禁止 `/\:*?"<>|` 等非法字符
+  - 单文件最大 1MB，防止恶意大文件
+- **启动时自动创建** `instance/md/` 目录（在 `app.py` 的目录创建循环中添加）
+- **应用入口注册**：在 `tools.html` 的 `builtInApps` 数组中添加 "Markdown 笔记"（图标 `edit_note`）
+- **代码变更清单**：
+  - `modules/md/__init__.py` — Blueprint 注册
+  - `modules/md/routes.py` — 页面路由
+  - `modules/md/api.py` — REST API
+  - `templates/md_editor.html` — 前端单页应用（Vue 2 + Element UI）
+  - `assets/css/md-editor.css` — 编辑器样式（GitHub 风格 Markdown 预览）
+  - `app.py` — 注册 `md_bp` + 启动时创建 `instance/md/`
+  - `templates/tools.html` — 添加工具入口
+
+### REL2.5.4
+
+**AI 对话模块全面重构 + 用户管理修复增强**
+
+#### 一、AI 对话 UI 全面重构
+
+- **设计语言借鉴 DeepSeek 官网**：
+  - **配色方案**：品牌色 `#3964fe` / `#5686fe`，侧边栏背景 `#f9fafb`，助手气泡 `#edf3fe`，用户气泡 `#f1f3f5`
+  - **字体系统**：Inter 字体栈 + CJK fallback，正文 16px/28px（DeepSeek markdown 标准），侧边栏 13px
+  - **组件样式**：圆形图标按钮 28px、输入框 10px 圆角聚焦蓝色阴影环、发送按钮 32px 圆形品牌色填充
+  - **过渡动画**：统一 `0.2s cubic-bezier(0.4, 0, 0.2, 1)` 缓动曲线
+  - **布局规范**：侧边栏 261px 宽，内容区最大宽度 840px 居中，移动端响应式适配
+  - **阴影层级**：`0 2px 4px rgba(0,0,0,0.05)` 浅阴影、弹出层 `0 8px 24px rgba(0,0,0,0.12)`
+- **移除联网搜索**：
+  - 删除前端"联网搜索"切换控件
+  - 删除后端 `_web_search()` 函数及 `enable_search` 参数
+  - 清理 `tools.html` 中 AI 对话描述文本
+- **深度思考开关优化**：
+  - **功能增强**：前端仅在模型支持思考时发送 `enable_thinking` 字段（true/false），不支持时省略
+  - **参数修正**：后端 `_build_payload()` 改为 `enable_thinking=None` 默认值，None 时不发送 `thinking` 参数
+  - **精确控制**：支持 `thinking: {"type": "enabled"}`（开启）和 `thinking: {"type": "disabled"}`（关闭）
+  - 仅 `enable_thinking=True` 时附带 `reasoning_effort` 参数
+  - 流式端点增加 `stream_options: {"include_usage": true}`
+- **模型预设更新**：
+  - 预设模型改为 `deepseek-v4-flash`（DeepSeek-V4 Flash）和 `deepseek-v4-pro`（DeepSeek-V4 Pro）
+  - 前端 `supportsThinking` 新增 `v4` 关键词匹配，两个 V4 模型均可切换深度思考
+  - 数据库默认模型、配置回退值、前端占位符统一更新
+- **Bug 修复——AI 对话不显示回复**：
+  - **根本原因**：升级用户数据库中缺少 `ai_conversation` 和 `ai_message` 表
+  - **解决方案**：在 `app.py` 的 `run_migrations()` 中添加两张表的自动创建迁移
+- **代码变更清单**：
+  - `templates/ai_chat.html`：全面重写（CSS 变量体系、DOM 结构、Vue 组件样式）
+  - `modules/ai_chat/api.py`：删除 `_web_search()`、新增 `stream_options`、修正 `_build_payload()` 参数逻辑
+  - `app.py`：添加 `ai_conversation` / `ai_message` 表迁移
+  - `models/ai_chat.py`：默认模型更新
+  - `templates/tools.html`：更新 AI 对话入口描述
+
+#### 二、用户管理修复增强
+
+- **账号删除级联清理**：
+  - **问题**：删除用户时因外键约束（`ai_conversation`、`drop_message` 等表）导致删除失败，用户名无法重新注册
+  - **解决方案**：在 `DELETE /api/users` 中先级联删除所有关联数据再删除用户，使用单事务保证一致性
+  - **级联范围**：`ai_conversation`/`ai_message`、`drop_message`/`drop_settings`/`drop_blacklist`、`bili_video_user`、`user_announcement_status`、`drop_read`、`video_access_user`
+- **密码修改 & 退出登录跳转优化**：
+  - **问题**：修改密码或退出所有设备后重定向到 `/logout`，但 session 已失效导致二次跳转
+  - **解决方案**：`board.html` 和 `bili_player.html` 中修改密码和退出所有设备后直接跳转至 `/login`
+- **用户管理表格 ID 隐藏**：
+  - **问题**：用户表格直接暴露数据库自增 ID，缺乏隐私保护
+  - **解决方案**：`templates/user_management.html` 中 `ID` 列改为 `type="index"` 序号列，显示 1-based 序号
+- **代码变更清单**：
+  - `modules/auth/api.py`：重写 DELETE 用户逻辑，添加级联删除
+  - `templates/board.html`：修改密码/退出设备跳转目标改为 `/login`
+  - `templates/bili_player.html`：同上
+  - `templates/user_management.html`：ID 列改为序号列
+
 ### REL2.5.3
 
 **AI 对话功能增强**
@@ -1234,6 +1468,9 @@
   - hook.js：浏览器端拦截脚本（Service Worker + Hook 双模式）
   - proxy\_server.py：代理服务器管理（启动、停止、状态查询）
   - api.py：代理控制 API
+- **md 模块**：Markdown 笔记
+  - routes.py：Markdown 编辑器页面路由
+  - api.py：文件/文件夹管理 API（列表、读写、创建、删除、重命名）
 - **main 模块**：主页面
   - routes.py：首页、控制面板、工具页面
 - **settings 模块**：系统设置
@@ -1592,6 +1829,15 @@
   - answer: 安全问题答案
   - new\_password: 新密码
 - **返回**：成功/失败信息 JSON
+
+#### 3.2.10 管理员一键退出所有人登录
+
+- **URL**：`/api/admin/logout-all-users`
+- **方法**：POST
+- **权限**：管理员或超级管理员
+- **参数**：无（使用当前登录用户身份）
+- **返回**：成功/失败信息 JSON（`success`、`message`、`logout_count`）
+- **说明**：强制除当前管理员外的所有用户退出登录，利用 `session_version` 机制使所有已登录会话失效
 
 ### 3.3 Passkey 管理 API
 

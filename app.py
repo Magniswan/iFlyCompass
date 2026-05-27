@@ -16,10 +16,21 @@ from modules.video import video_bp
 from modules.bili import bili_bp
 from modules.proxy import proxy_bp
 from modules.ai_chat import ai_chat_bp
+from modules.md import md_bp
+from modules.game_doudizhu import game_doudizhu_bp
+from modules.game_doudizhu.api import api_bp as game_doudizhu_api_bp
+from modules.game_chess import game_chess_bp
+from modules.game_chess.api import api_bp as game_chess_api_bp
+from modules.game_gomoku import game_gomoku_bp
+from modules.game_gomoku.api import api_bp as game_gomoku_api_bp
 from modules.chat.websocket import register_socketio_events
+from modules.game_doudizhu.websocket import register_socketio_events as register_doudizhu_socketio_events
+from modules.game_chess.websocket import register_socketio_events as register_chess_socketio_events
+from modules.game_gomoku.websocket import register_socketio_events as register_gomoku_socketio_events
 from utils import init_settings, init_nav_file
 
-for directory in [Config.TEMP_DIR, Config.INSTANCE_DIR, Config.STICKERS_DIR, Config.NOVELS_DIR, Config.VIDEOS_DIR]:
+MD_DIR = os.path.join(Config.INSTANCE_DIR, 'md')
+for directory in [Config.TEMP_DIR, Config.INSTANCE_DIR, Config.STICKERS_DIR, Config.NOVELS_DIR, Config.VIDEOS_DIR, MD_DIR]:
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -256,6 +267,82 @@ def run_migrations(app):
             conn.commit()
             print("数据库迁移完成！")
 
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_conversation'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 ai_conversation 表...")
+            cursor.execute('''
+                CREATE TABLE ai_conversation (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    title VARCHAR(200) NOT NULL DEFAULT '新对话',
+                    model VARCHAR(100) NOT NULL DEFAULT 'deepseek-v4-flash',
+                    created_at DATETIME,
+                    updated_at DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES user(id)
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_message'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 ai_message 表...")
+            cursor.execute('''
+                CREATE TABLE ai_message (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    conversation_id INTEGER NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at DATETIME,
+                    FOREIGN KEY (conversation_id) REFERENCES ai_conversation(id)
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='game_record'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 game_record 表...")
+            cursor.execute('''
+                CREATE TABLE game_record (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    game_type VARCHAR(20) NOT NULL,
+                    room_id VARCHAR(36) NOT NULL,
+                    started_at DATETIME,
+                    ended_at DATETIME,
+                    winner_ids JSON,
+                    winner_names JSON,
+                    loser_ids JSON,
+                    loser_names JSON,
+                    player_ids JSON,
+                    game_data JSON
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_game_stats'")
+        if not cursor.fetchone():
+            print("正在迁移数据库：创建 user_game_stats 表...")
+            cursor.execute('''
+                CREATE TABLE user_game_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    game_type VARCHAR(20) NOT NULL,
+                    total_games INTEGER DEFAULT 0,
+                    wins INTEGER DEFAULT 0,
+                    losses INTEGER DEFAULT 0,
+                    draws INTEGER DEFAULT 0,
+                    win_rate REAL DEFAULT 0.0,
+                    last_played DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES user(id),
+                    CONSTRAINT uq_user_game UNIQUE (user_id, game_type)
+                )
+            ''')
+            conn.commit()
+            print("数据库迁移完成！")
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -279,8 +366,18 @@ def create_app():
     app.register_blueprint(bili_bp)
     app.register_blueprint(proxy_bp)
     app.register_blueprint(ai_chat_bp)
+    app.register_blueprint(md_bp)
+    app.register_blueprint(game_doudizhu_bp)
+    app.register_blueprint(game_doudizhu_api_bp)
+    app.register_blueprint(game_chess_bp)
+    app.register_blueprint(game_chess_api_bp)
+    app.register_blueprint(game_gomoku_bp)
+    app.register_blueprint(game_gomoku_api_bp)
     
     register_socketio_events(socketio)
+    register_doudizhu_socketio_events(socketio)
+    register_chess_socketio_events(socketio)
+    register_gomoku_socketio_events(socketio)
 
     @app.route('/sw.js')
     def serve_service_worker():
