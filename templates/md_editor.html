@@ -153,65 +153,69 @@
                                 ref="preview"
                                 class="md-preview"
                                 v-html="renderedContent"
+                                @touchstart="onTouchStart"
+                                @touchmove="onTouchMove"
                             ></div>
                         </div>
                         
-                        <!-- 工具栏 -->
-                        <div v-if="!isPreview" class="md-toolbar md-toolbar-bottom">
-                            <el-tooltip content="粗体" placement="top">
-                                <el-button size="mini" @click="insertFormat('bold')">B</el-button>
-                            </el-tooltip>
-                            <el-tooltip content="斜体" placement="top">
-                                <el-button size="mini" @click="insertFormat('italic')" style="font-style: italic;">I</el-button>
-                            </el-tooltip>
-                            <el-divider direction="vertical"></el-divider>
-                            <el-tooltip content="一级标题" placement="top">
-                                <el-button size="mini" @click="insertFormat('h1')">H1</el-button>
-                            </el-tooltip>
-                            <el-tooltip content="二级标题" placement="top">
-                                <el-button size="mini" @click="insertFormat('h2')">H2</el-button>
-                            </el-tooltip>
-                            <el-divider direction="vertical"></el-divider>
-                            <el-tooltip content="引用" placement="top">
-                                <el-button size="mini" @click="insertFormat('quote')">
-                                    <i class="el-icon-s-unfold"></i>
-                                </el-button>
-                            </el-tooltip>
-                            <el-tooltip content="代码块" placement="top">
-                                <el-button size="mini" @click="insertFormat('code')">
-                                    <i class="el-icon-c-scale-to-original"></i>
-                                </el-button>
-                            </el-tooltip>
-                            <el-divider direction="vertical"></el-divider>
-                            <el-tooltip content="无序列表" placement="top">
-                                <el-button size="mini" @click="insertFormat('ul')">
-                                    <i class="el-icon-s-unfold" style="transform: rotate(90deg);"></i>
-                                </el-button>
-                            </el-tooltip>
-                            <el-tooltip content="有序列表" placement="top">
-                                <el-button size="mini" @click="insertFormat('ol')">1.</el-button>
-                            </el-tooltip>
-                            <el-divider direction="vertical"></el-divider>
-                            <el-tooltip content="链接" placement="top">
-                                <el-button size="mini" @click="insertFormat('link')">
-                                    <i class="el-icon-link"></i>
-                                </el-button>
-                            </el-tooltip>
-                            <el-tooltip content="图片" placement="top">
-                                <el-button size="mini" @click="insertFormat('image')">
-                                    <i class="el-icon-picture"></i>
-                                </el-button>
-                            </el-tooltip>
-                            <el-tooltip content="分割线" placement="top">
-                                <el-button size="mini" @click="insertFormat('hr')">&mdash;</el-button>
-                            </el-tooltip>
-                        </div>
-                        
-                        <!-- 状态栏 -->
-                        <div class="md-status-bar">
-                            <span>字符数: [[ editorContent.length ]]</span>
-                            <span>[[ saveStatus ]]</span>
-                            <span v-if="autoSaveTimer">自动保存中...</span>
+                        <!-- 底部统一工具栏（工具按钮 + 状态信息 合一） -->
+                        <div class="md-bottom-bar" :class="{ 'keyboard-open': isKeyboardOpen }">
+                            <div class="md-bottom-main">
+                                <div v-if="!isPreview" class="md-bottom-toolbar">
+                                    <el-tooltip content="粗体" placement="top">
+                                        <el-button size="mini" @click="insertFormat('bold')">B</el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="斜体" placement="top">
+                                        <el-button size="mini" @click="insertFormat('italic')" style="font-style: italic;">I</el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="一级标题" placement="top">
+                                        <el-button size="mini" @click="insertFormat('h1')">H1</el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="二级标题" placement="top">
+                                        <el-button size="mini" @click="insertFormat('h2')">H2</el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="引用" placement="top">
+                                        <el-button size="mini" @click="insertFormat('quote')">
+                                            <i class="el-icon-s-unfold"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="代码块" placement="top">
+                                        <el-button size="mini" @click="insertFormat('code')">
+                                            <i class="el-icon-c-scale-to-original"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="无序列表" placement="top">
+                                        <el-button size="mini" @click="insertFormat('ul')">
+                                            <i class="el-icon-s-unfold" style="transform: rotate(90deg);"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="有序列表" placement="top">
+                                        <el-button size="mini" @click="insertFormat('ol')">1.</el-button>
+                                    </el-tooltip>
+                                    <el-divider direction="vertical"></el-divider>
+                                    <el-tooltip content="链接" placement="top">
+                                        <el-button size="mini" @click="insertFormat('link')">
+                                            <i class="el-icon-link"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="图片" placement="top">
+                                        <el-button size="mini" @click="insertFormat('image')">
+                                            <i class="el-icon-picture"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="分割线" placement="top">
+                                        <el-button size="mini" @click="insertFormat('hr')">&mdash;</el-button>
+                                    </el-tooltip>
+                                </div>
+                                <div class="md-bottom-status">
+                                    <span>字符数: [[ editorContent.length ]]</span>
+                                    <span>[[ saveStatus ]]</span>
+                                    <span v-if="autoSaveTimer">自动保存中...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </el-main>
@@ -276,7 +280,9 @@
                     renameNewName: '',
                     renameTarget: null,
                     creating: false,
-                    renaming: false
+                    renaming: false,
+                    isKeyboardOpen: false,
+                    touchStartY: 0
                 };
             },
             computed: {
@@ -299,6 +305,7 @@
             mounted() {
                 this.loadFiles();
                 this.initAutoSave();
+                this.initKeyboardDetection();
             },
             methods: {
                 loadFiles() {
@@ -636,8 +643,37 @@
                     this.touchStartY = e.touches[0].clientY;
                 },
                 onTouchMove(e) {
-                    // 手势劫持：阻止事件冒泡，确保 textarea 自身可流畅滚动
+                    // 手势劫持：阻止事件冒泡，防止浏览器默认行为（下拉刷新、回弹）干扰编辑器
                     e.stopPropagation();
+                    var el = this.$refs.editor;
+                    if (el && document.activeElement === el) {
+                        // 在 textarea 边界时阻止默认行为，防止页面整体被拉动
+                        var scrollTop = el.scrollTop;
+                        var scrollHeight = el.scrollHeight;
+                        var clientHeight = el.clientHeight;
+                        var deltaY = e.touches[0].clientY - this.touchStartY;
+                        if ((scrollTop <= 0 && deltaY > 0) || (scrollTop + clientHeight >= scrollHeight && deltaY < 0)) {
+                            e.preventDefault();
+                        }
+                        this.touchStartY = e.touches[0].clientY;
+                    }
+                },
+                initKeyboardDetection() {
+                    // 检测安卓虚拟键盘抬起：通过 Visual Viewport API（最准）或 window resize 回退
+                    var self = this;
+                    if (window.visualViewport) {
+                        window.visualViewport.addEventListener('resize', function() {
+                            var currentHeight = window.visualViewport.height;
+                            var threshold = window.innerHeight * 0.25;
+                            self.isKeyboardOpen = window.innerHeight - currentHeight > threshold;
+                        });
+                    } else {
+                        var refHeight = window.innerHeight;
+                        window.addEventListener('resize', function() {
+                            var threshold = refHeight * 0.25;
+                            self.isKeyboardOpen = refHeight - window.innerHeight > threshold;
+                        });
+                    }
                 },
                 toggleCollapse() {
                     this.isCollapse = !this.isCollapse;

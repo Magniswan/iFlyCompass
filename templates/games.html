@@ -133,13 +133,13 @@
                     <div class="header-right">
                         <div class="user-menu-container" @click="toggleUserMenu">
                             <span class="user-info">
-                                您好，{{ displayName }}
+                                您好，[[ displayName ]]
                                 <i class="el-icon-arrow-down" :class="{ 'rotated': userMenuVisible }"></i>
                             </span>
                             <div class="user-dropdown-menu" v-show="userMenuVisible" @click.stop>
                                 <div class="user-dropdown-header">
-                                    <div class="display-name">{{ displayName }}</div>
-                                    <div class="username-label">@{{ username }}</div>
+                                    <div class="display-name">[[ displayName ]]</div>
+                                    <div class="username-label">@[[ username ]]</div>
                                 </div>
                                 <div class="user-dropdown-item" @click="openProfileDialog">
                                     <i class="el-icon-user"></i>
@@ -223,7 +223,7 @@
     <script>
         new Vue({
             el: '#app',
-            delimiters: ['{{', '}}'],
+            delimiters: ['[[', ']]'],
             data: {
                 isCollapse: {% if sidebar_expanded %}false{% else %}true{% endif %},
                 activeMenu: 'games',
@@ -255,8 +255,12 @@
                         window.location.href = '/board/tools';
                     } else if (key === 'games') {
                         window.location.href = '/board/games';
+                    } else if (key === 'users') {
+                        window.location.href = '/board/users';
                     } else if (key === 'chat') {
                         window.location.href = '/board/chat';
+                    } else if (key === 'settings') {
+                        window.location.href = '/board/settings';
                     }
                 },
                 goToGame: function(game) {

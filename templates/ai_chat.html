@@ -262,6 +262,7 @@
             scrollbar-width: none;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
+            touch-action: pan-y;
         }
         .chat-body::-webkit-scrollbar { width: 5px; }
         .chat-body::-webkit-scrollbar-thumb { background: var(--ds-text-dimmed); border-radius: 3px; }
@@ -459,6 +460,7 @@
             transition: all var(--ds-transition);
             overflow: hidden;
             box-shadow: none;
+            touch-action: pan-y;
         }
         .input-container:focus-within {
             background: var(--ds-bg-white);
@@ -671,7 +673,7 @@
                 </header>
 
                 <!-- Chat Messages -->
-                <div class="chat-body" ref="msgContainer">
+                <div class="chat-body" ref="msgContainer" @touchmove="onChatTouchMove">
                     <div v-if="messages.length === 0 && !isLoading" class="welcome-area">
                         <div class="welcome-logo"><i class="el-icon-cpu"></i></div>
                         <h2>有什么可以帮助你的？</h2>
@@ -712,13 +714,14 @@
                 </div>
 
                 <!-- Chat Input -->
-                <div class="chat-footer">
+                <div class="chat-footer" @touchmove="onInputTouchMove">
                     <div class="input-container">
                         <div class="input-row">
                             <textarea ref="inputEl"
                                 v-model="inputMessage"
                                 placeholder="给 AI 发送消息"
                                 @keydown="handleKeydown"
+                                @touchmove="onInputTouchMove"
                                 :disabled="isLoading"
                                 rows="1"></textarea>
                             <button class="send-btn"
@@ -733,7 +736,7 @@
                             <div class="footer-left">
                                 <button class="think-btn"
                                     :class="{ on: enableThinking, off: !supportsThinking }"
-                                    @click="supportsThinking && (enableThinking = !enableThinking)"
+                                    @click="toggleThinking"
                                     :title="supportsThinking ? (enableThinking ? '关闭深度思考' : '开启深度思考') : '当前模型不支持深度思考'">
                                     <span style="font-size:13px;">🧠</span>
                                     深度思考
@@ -879,6 +882,19 @@
                 },
                 selectModel: function(id) { this.selectedModel = id; },
                 isStreamingIndex: function(idx) { return this.streamingIndex === idx; },
+                toggleThinking: function() {
+                    if (this.supportsThinking) {
+                        this.enableThinking = !this.enableThinking;
+                    }
+                },
+                onChatTouchMove: function(e) {
+                    // 手势劫持：阻止 chat-body 的触摸事件冒泡到 document，防止浏览器默认行为（如下拉刷新、回弹）
+                    e.stopPropagation();
+                },
+                onInputTouchMove: function(e) {
+                    // 手势劫持：阻止输入区触摸事件冒泡，防止键盘弹出时页面异常滚动
+                    e.stopPropagation();
+                },
 
                 loadConversations: async function() {
                     try {
