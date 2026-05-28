@@ -185,6 +185,22 @@
                                     <el-tag size="small" type="info">2人</el-tag>
                                 </div>
                             </el-card>
+                            <el-card class="game-card" shadow="hover" @click.native="goToGame('uno')">
+                                <div class="game-card-body">
+                                    <i class="material-icons game-card-icon" style="color: #e74c3c;">view_carousel</i>
+                                    <div class="game-card-title">UNO</div>
+                                    <div class="game-card-desc">3-8人联机对战，经典卡牌游戏</div>
+                                    <el-tag size="small" type="danger">3-8人</el-tag>
+                                </div>
+                            </el-card>
+                            <el-card class="game-card" shadow="hover" @click.native="goToGame('uno-nomer')">
+                                <div class="game-card-body">
+                                    <i class="material-icons game-card-icon" style="color: #c0392b;">whatshot</i>
+                                    <div class="game-card-title">UNO No Mercy</div>
+                                    <div class="game-card-desc">3-8人残酷对战，淘汰制</div>
+                                    <el-tag size="small" type="danger">3-8人</el-tag>
+                                </div>
+                            </el-card>
                         </div>
                         
                         <div class="recent-records">
@@ -272,7 +288,7 @@
                     fetch('/api/game/records?limit=10')
                         .then(function(r) { return r.json(); })
                         .then(function(data) {
-                            var typeNames = { doudizhu: '斗地主', chess: '象棋', gomoku: '五子棋' };
+                                    var typeNames = { doudizhu: '斗地主', chess: '象棋', gomoku: '五子棋', uno: 'UNO', uno_nomer: 'UNO No Mercy' };
                             self.recentRecords = (data.records || []).map(function(r) {
                                 var winners = r.winner_names || [];
                                 return {

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UNO - iFlyCompass</title>
+    <link rel="stylesheet" href="/assets/css/loading.css">
+    <link rel="stylesheet" href="/assets/css/material-icons.css">
+    <link rel="stylesheet" href="/assets/css/element-ui.css">
+    <link rel="stylesheet" href="/assets/css/console.css">
+    <style>
+        .user-menu-container { position: relative; cursor: pointer; z-index: 1000; }
+        .user-info { display: flex; align-items: center; padding: 8px 12px; border-radius: 4px; transition: background-color 0.3s; }
+        .user-info:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .user-dropdown-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #d9d9d9; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 200px; overflow: hidden; z-index: 1001; }
+        .user-dropdown-header { padding: 12px 16px; background: #f5f7fa; border-bottom: 1px solid #e8e8e8; }
+        .user-dropdown-item { display: flex; align-items: center; padding: 10px 16px; cursor: pointer; transition: background-color 0.3s; color: #333; }
+        .user-dropdown-item:hover { background-color: #f5f7fa; }
+        .user-dropdown-divider { height: 1px; background-color: #e8e8e8; margin: 4px 0; }
+        .user-dropdown-item.logout-item { color: #ff4d4f; }
+        .user-dropdown-item.logout-item:hover { background-color: #fff1f0; }
+
+        /* Lobby */
+        .lobby-container { height: calc(100vh - 64px); display: flex; flex-direction: column; background: #f5f7fa; overflow: hidden; }
+        .lobby-header { padding: 12px 16px; background: #fff; border-bottom: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .lobby-body { flex: 1; padding: 16px; overflow-y: auto; }
+        .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+        .room-card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1); overflow: hidden; transition: all 0.3s; display: flex; flex-direction: column; }
+        .room-card:hover { box-shadow: 0 4px 16px 0 rgba(0,0,0,0.15); transform: translateY(-2px); }
+        .room-card-header { padding: 10px 14px; border-bottom: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; }
+        .room-card-name { font-size: 15px; font-weight: bold; color: #303133; }
+        .room-card-status { font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+        .room-card-status.waiting { background: #e6f7ff; color: #1890ff; }
+        .room-card-status.playing { background: #f6ffed; color: #52c41a; }
+        .room-card-body { padding: 14px; flex: 1; }
+        .room-card-players { display: flex; align-items: center; gap: 3px; margin-top: 6px; }
+        .player-avatar { width: 24px; height: 24px; border-radius: 50%; background: #409EFF; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+        .player-avatar.empty { background: #dcdfe6; color: #909399; }
+        .room-card-footer { padding: 10px 14px; border-top: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Game Room */
+        .game-container { height: calc(100vh - 64px); display: flex; flex-direction: column; background: #1a1a2e; overflow: hidden; }
+        .game-main { flex: 1; display: flex; position: relative; overflow: hidden; }
+        .game-board { flex: 1; display: flex; flex-direction: column; padding: 8px; gap: 6px; min-width: 0; position: relative; }
+        .game-chat-panel { width: 280px; border-left: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); display: flex; flex-direction: column; transition: transform 0.3s ease; }
+
+        /* Top Players */
+        .top-players { display: flex; justify-content: center; gap: 8px; padding: 4px; flex-wrap: wrap; min-height: 48px; }
+        .player-info { display: flex; flex-direction: column; align-items: center; gap: 2px; color: #fff; min-width: 52px; font-size: 11px; }
+        .player-info.active .player-avatar-large { box-shadow: 0 0 0 2px #ffd700; }
+        .player-avatar-large { width: 32px; height: 32px; border-radius: 50%; background: #409EFF; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; }
+        .player-avatar-large.empty { background: rgba(255,255,255,0.2); }
+        .player-name { font-size: 11px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .player-card-count { font-size: 10px; background: rgba(0,0,0,0.4); padding: 1px 6px; border-radius: 8px; }
+
+        /* Game Table */
+        .game-table { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 0; }
+        .game-status-bar { font-size: 14px; color: #fff; text-align: center; padding: 6px 14px; background: rgba(0,0,0,0.4); border-radius: 16px; }
+        .discard-area { display: flex; align-items: center; gap: 16px; }
+        .deck-placeholder { width: 48px; height: 72px; background: #222; border: 2px dashed #555; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #888; font-size: 11px; }
+
+        /* UNO Card Styles */
+        .uno-card { width: 48px; height: 72px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; user-select: none; transition: all 0.2s ease; position: relative; box-shadow: 0 2px 6px rgba(0,0,0,0.4); font-weight: bold; font-size: 14px; border: 2px solid rgba(255,255,255,0.3); }
+        .uno-card:hover { transform: translateY(-6px); box-shadow: 0 6px 12px rgba(0,0,0,0.5); }
+        .uno-card.selected { transform: translateY(-12px); box-shadow: 0 8px 16px rgba(0,0,0,0.6); border-color: #ffd700; }
+        .uno-card.disabled { opacity: 0.5; cursor: not-allowed; }
+        .uno-card.back { background: linear-gradient(135deg, #1e3c72, #2a5298); color: transparent; }
+        .uno-card.wild { background: linear-gradient(135deg, #333, #111); color: #fff; }
+        .uno-card.R { background: #e74c3c; color: #fff; }
+        .uno-card.Y { background: #f1c40f; color: #333; }
+        .uno-card.G { background: #27ae60; color: #fff; }
+        .uno-card.B { background: #3498db; color: #fff; }
+        .uno-card .card-value { font-size: 16px; line-height: 1; }
+        .uno-card .card-color-icon { font-size: 10px; position: absolute; top: 3px; left: 4px; }
+        .uno-card .card-color-icon-bottom { font-size: 10px; position: absolute; bottom: 3px; right: 4px; transform: rotate(180deg); }
+
+        /* Color Indicator */
+        .color-indicator { width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+        .color-indicator.R { background: #e74c3c; }
+        .color-indicator.Y { background: #f1c40f; }
+        .color-indicator.G { background: #27ae60; }
+        .color-indicator.B { background: #3498db; }
+
+        /* Bottom Controls */
+        .bottom-controls { display: flex; flex-direction: column; gap: 6px; padding: 6px 10px; background: rgba(0,0,0,0.25); border-radius: 8px; }
+        .action-buttons { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .my-cards-area { display: flex; justify-content: flex-start; gap: 2px; overflow-x: auto; padding: 6px 0; min-height: 80px; flex-wrap: nowrap; scrollbar-width: thin; }
+        .my-cards-area::-webkit-scrollbar { height: 4px; }
+        .my-cards-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 2px; }
+
+        /* Chat Panel */
+        .chat-header { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.15); color: #fff; font-weight: 600; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; font-size: 13px; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+        .chat-message { padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.08); color: #fff; word-break: break-word; }
+        .chat-message.system { background: rgba(255,215,0,0.12); color: #ffd700; text-align: center; font-size: 11px; }
+        .chat-message .msg-author { font-weight: 600; margin-right: 3px; color: #409EFF; }
+        .chat-input-area { padding: 8px; border-top: 1px solid rgba(255,255,255,0.15); display: flex; gap: 6px; flex-shrink: 0; }
+
+        /* Color Picker */
+        .color-picker-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; color: #fff; gap: 16px; }
+        .color-picker-grid { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+        .color-picker-btn { width: 64px; height: 64px; border-radius: 12px; border: 3px solid #fff; cursor: pointer; transition: transform 0.2s; }
+        .color-picker-btn:hover { transform: scale(1.1); }
+
+        /* Waiting Room */
+        .waiting-room { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #fff; }
+        .waiting-players { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin: 12px 0; }
+        .waiting-player { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .waiting-player .player-avatar-large { width: 52px; height: 52px; font-size: 20px; }
+        .ready-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #67c23a; }
+        .not-ready-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #909399; }
+
+        /* Game Over */
+        .game-over-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; color: #fff; }
+        .game-over-title { font-size: 28px; font-weight: bold; margin-bottom: 12px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .game-chat-panel { position: absolute; top: 0; right: 0; height: 100%; z-index: 100; transform: translateX(100%); }
+            .game-chat-panel.open { transform: translateX(0); }
+            .chat-toggle-btn { position: absolute; top: 6px; right: 6px; z-index: 50; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-size: 12px; }
+            .uno-card { width: 40px; height: 60px; font-size: 12px; }
+            .uno-card .card-value { font-size: 14px; }
+            .room-grid { grid-template-columns: 1fr; }
+            .top-players { gap: 4px; }
+            .player-info { min-width: 44px; }
+            .player-avatar-large { width: 28px; height: 28px; font-size: 11px; }
+        }
+        @media (max-width: 480px) {
+            .uno-card { width: 36px; height: 54px; font-size: 11px; border-radius: 6px; }
+            .uno-card .card-value { font-size: 13px; }
+            .discard-area { gap: 10px; }
+            .game-status-bar { font-size: 12px; padding: 4px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay"><div class="loading-spinner"></div><div class="loading-text">加载中...</div></div>
+    <div id="app">
+        <el-container class="console-container">
+            <el-aside width="64px" class="console-sidebar" :width="isCollapse ? '64px' : '200px'">
+                <div class="sidebar-header" @click="toggleCollapse">
+                    <img src="/assets/images/logo-trans-white.png" alt="Logo" class="sidebar-logo">
+                    <span v-show="!isCollapse" class="sidebar-brand">iFlyCompass</span>
+                    <i v-show="!isCollapse" class="el-icon-s-fold sidebar-toggle"></i>
+                </div>
+                <el-menu :default-active="activeMenu" class="el-menu-vertical-demo" background-color="#1a365d" text-color="#ffffff" active-text-color="#409EFF" :collapse="isCollapse" @select="handleMenuClick">
+                    <el-menu-item index="dashboard"><i class="el-icon-s-home"></i><span slot="title">首页</span></el-menu-item>
+                    <el-menu-item index="tools"><i class="el-icon-s-tools"></i><span slot="title">小工具</span></el-menu-item>
+                    <el-menu-item index="games" :class="{ active: activeMenu === 'games' }"><i class="el-icon-s-marketing"></i><span slot="title">小游戏</span></el-menu-item>
+                    <el-menu-item index="chat"><i class="el-icon-chat-dot-round"></i><span slot="title">聊天室</span></el-menu-item>
+                    <el-menu-item index="users" v-if="isAdmin"><i class="el-icon-s-custom"></i><span slot="title">用户管理</span></el-menu-item>
+                    <el-menu-item index="settings" v-if="isAdmin"><i class="el-icon-setting"></i><span slot="title">系统设置</span></el-menu-item>
+                </el-menu>
+            </el-aside>
+
+            <el-container>
+                <el-header class="console-header">
+                    <div class="header-left"><h1>UNO</h1></div>
+                    <div class="header-right">
+                        <div class="user-menu-container" @click="toggleUserMenu">
+                            <span class="user-info">您好，[[ displayName ]] <i class="el-icon-arrow-down" :class="{ 'rotated': userMenuVisible }"></i></span>
+                            <div class="user-dropdown-menu" v-show="userMenuVisible" @click.stop>
+                                <div class="user-dropdown-header"><div class="display-name">[[ displayName ]]</div><div class="username-label">@[[ username ]]</div></div>
+                                <div class="user-dropdown-item" @click="openProfileDialog"><i class="el-icon-user"></i><span>个人设置</span></div>
+                                <div class="user-dropdown-divider"></div>
+                                <div class="user-dropdown-item logout-item" @click="confirmLogout"><i class="el-icon-switch-button"></i><span>退出登录</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </el-header>
+
+                <el-main class="console-content" style="padding: 0; background: #1a1a2e;">
+                    <!-- Lobby -->
+                    <div class="lobby-container" v-if="!inRoom">
+                        <div class="lobby-header">
+                            <div class="lobby-title">房间列表</div>
+                            <el-button type="primary" icon="el-icon-plus" @click="showCreateDialog = true" size="small">创建房间</el-button>
+                        </div>
+                        <div class="lobby-body">
+                            <div class="room-grid" v-if="rooms.length > 0">
+                                <div v-for="roomItem in rooms" :key="roomItem.room_id" class="room-card">
+                                    <div class="room-card-header">
+                                        <div class="room-card-name">
+                                            [[ roomItem.name ]]
+                                            <i v-if="roomItem.has_password" class="el-icon-lock" style="color: #909399; margin-left: 4px; font-size: 12px;"></i>
+                                        </div>
+                                        <span class="room-card-status" :class="roomItem.status">[[ roomItem.status === 'playing' ? '游戏中' : '等待中' ]]</span>
+                                    </div>
+                                    <div class="room-card-body">
+                                        <div style="font-size: 12px; color: #666;">创建者: [[ roomItem.creator_name ]]</div>
+                                        <div class="room-card-players">
+                                            <div v-for="n in roomItem.max_players" :key="n" class="player-avatar" :class="{ empty: !roomItem.players || !roomItem.players[n-1] }">
+                                                [[ roomItem.players && roomItem.players[n-1] ? roomItem.players[n-1].username.charAt(0).toUpperCase() : '?' ]]
+                                            </div>
+                                            <span style="font-size: 11px; color: #666; margin-left: 4px;">[[ (roomItem.players ? roomItem.players.filter(p => p).length : 0) ]]/[[ roomItem.max_players ]]</span>
+                                        </div>
+                                    </div>
+                                    <div class="room-card-footer">
+                                        <div style="font-size: 11px; color: #999;">by [[ roomItem.creator_name ]]</div>
+                                        <el-button type="primary" size="mini" @click="onJoinRoomClick(roomItem)">加入</el-button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else style="display: flex; justify-content: center; align-items: center; height: 300px;"><el-empty description="暂无房间，快去创建一个吧"></el-empty></div>
+                        </div>
+                    </div>
+
+                    <!-- Room / Game View -->
+                    <div class="game-container" v-else>
+                        <div class="game-main">
+                            <div class="game-board">
+                                <button v-if="!chatOpen" class="chat-toggle-btn" @click="chatOpen = true"><i class="el-icon-chat-dot-round"></i> 聊天</button>
+                                <!-- Top Players -->
+                                <div class="top-players">
+                                    <div v-for="p in otherPlayers" :key="p ? p.seat : -1" class="player-info" :class="{ active: isCurrentTurn(p) }">
+                                        <div class="player-avatar-large" :class="{ empty: !p }">[[ p ? p.username.charAt(0).toUpperCase() : '?' ]]</div>
+                                        <div class="player-name">[[ p ? (p.nickname || p.username) : '空位' ]]</div>
+                                        <div class="player-card-count" v-if="gameState.phase === 'playing' || gameState.phase === 'ended'">[[ p ? getHandCount(p.seat) : 0 ]] 张</div>
+                                    </div>
+                                </div>
+
+                                <!-- Game Status -->
+                                <div class="game-status-bar" v-if="room.status === 'playing'">
+                                    <span v-if="gameState.phase === 'playing'">
+                                        [[ isMyTurn ? '轮到您出牌' : '等待 ' + (currentTurnPlayer ? (currentTurnPlayer.nickname || currentTurnPlayer.username) : '') + ' 出牌' ]]
+                                        <span v-if="gameState.top_color" style="margin-left: 8px;">当前颜色:</span>
+                                        <span v-if="gameState.top_color" class="color-indicator" :class="gameState.top_color" style="display: inline-block; width: 14px; height: 14px; vertical-align: middle; margin-left: 4px;"></span>
+                                    </span>
+                                    <span v-else-if="gameState.phase === 'ended'">游戏结束</span>
+                                </div>
+                                <div class="game-status-bar" v-else-if="room.status === 'waiting'">等待中 - [[ getReadyCount ]]/[[ getPlayerCount ]] 已准备</div>
+
+                                <!-- Game Table -->
+                                <div class="game-table" v-if="room.status === 'playing'">
+                                    <div class="discard-area">
+                                        <div class="deck-placeholder">牌堆<br>[[ deckCount ]]</div>
+                                        <div v-if="gameState.top_card" class="uno-card" :class="[cardColorClass(gameState.top_card), { wild: cardColorClass(gameState.top_card) === 'wild' }]">
+                                            <span class="card-color-icon">[[ cardColorIcon(gameState.top_card) ]]</span>
+                                            <span class="card-value">[[ cardText(gameState.top_card) ]]</span>
+                                            <span class="card-color-icon-bottom">[[ cardColorIcon(gameState.top_card) ]]</span>
+                                        </div>
+                                        <div v-if="gameState.top_color && gameState.top_color !== 'wild'" class="color-indicator" :class="gameState.top_color"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Waiting Room -->
+                                <div class="waiting-room" v-else-if="room.status === 'waiting'">
+                                    <h2 style="margin: 0;">[[ room.name ]]</h2>
+                                    <div class="waiting-players">
+                                        <div v-for="p in room.players" :key="p ? p.seat : -1" class="waiting-player">
+                                            <div class="player-avatar-large" :class="{ empty: !p }">[[ p ? p.username.charAt(0).toUpperCase() : '?' ]]</div>
+                                            <div v-if="p" style="font-size: 12px;">[[ p.nickname || p.username ]]
+                                                <span v-if="p.ready" class="ready-badge">已准备</span>
+                                                <span v-else class="not-ready-badge">未准备</span>
+                                            </div>
+                                            <div v-else style="font-size: 12px;">等待加入...</div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                                        <el-button type="primary" @click="toggleReady" :disabled="!isPlayer" size="small">[[ isReady ? '取消准备' : '准备' ]]</el-button>
+                                        <el-button type="success" @click="startGame" v-if="isCreator" :disabled="!canStartGame" size="small">开始游戏</el-button>
+                                        <el-button @click="goBack" size="small">退出房间</el-button>
+                                    </div>
+                                </div>
+
+                                <!-- Bottom: My Cards & Actions -->
+                                <div class="bottom-controls" v-if="room.status === 'playing' && myCards.length > 0">
+                                    <div class="action-buttons" v-if="isMyTurn && gameState.phase === 'playing'">
+                                        <el-button type="primary" @click="playSelectedCard" :disabled="!selectedCard" size="small">出牌</el-button>
+                                        <el-button @click="drawCard" size="small">抽牌</el-button>
+                                    </div>
+                                    <div class="action-buttons" v-else-if="gameState.phase === 'ended'">
+                                        <el-button type="primary" @click="goBack" size="small">返回大厅</el-button>
+                                    </div>
+                                    <div v-else style="text-align: center; color: rgba(255,255,255,0.6); padding: 6px; font-size: 13px;">等待其他玩家...</div>
+
+                                    <div class="my-cards-area" v-if="gameState.phase !== 'ended'">
+                                        <div v-for="(card, index) in myCards" :key="card + index" class="uno-card"
+                                            :class="[cardColorClass(card), { selected: selectedCard === card, disabled: !isMyTurn || !canPlayCard(card) }, { wild: cardColorClass(card) === 'wild' }]"
+                                            @click="selectCard(card)">
+                                            <span class="card-color-icon">[[ cardColorIcon(card) ]]</span>
+                                            <span class="card-value">[[ cardText(card) ]]</span>
+                                            <span class="card-color-icon-bottom">[[ cardColorIcon(card) ]]</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chat Panel -->
+                            <div class="game-chat-panel" :class="{ open: chatOpen }">
+                                <div class="chat-header"><span>聊天</span><el-button type="text" style="color: #fff; padding: 0;" @click="chatOpen = !chatOpen"><i class="el-icon-close"></i></el-button></div>
+                                <div class="chat-messages" ref="chatMessages">
+                                    <div v-for="(msg, idx) in messages" :key="idx" class="chat-message" :class="{ system: msg.type === 'system' || msg.username === 'system' }">
+                                        <span v-if="msg.type !== 'system' && msg.username !== 'system'" class="msg-author">[[ msg.nickname || msg.username ]]:</span>
+                                        <span>[[ msg.message ]]</span>
+                                    </div>
+                                </div>
+                                <div class="chat-input-area">
+                                    <el-input v-model="chatInput" placeholder="输入消息..." size="small" @keyup.enter.native="sendMessage"></el-input>
+                                    <el-button type="primary" size="small" icon="el-icon-s-promotion" @click="sendMessage"></el-button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </el-main>
+            </el-container>
+        </el-container>
+
+        <!-- Create Room Dialog -->
+        <el-dialog title="创建房间" :visible.sync="showCreateDialog" width="400px">
+            <el-form :model="createForm" label-width="80px">
+                <el-form-item label="房间名称"><el-input v-model="createForm.name" placeholder="输入房间名称"></el-input></el-form-item>
+                <el-form-item label="房间密码"><el-input v-model="createForm.password" placeholder="可选，留空则无密码" type="password" show-password></el-input></el-form-item>
+                <el-form-item label="人数"><el-slider v-model="createForm.maxPlayers" :min="3" :max="8" show-stops></el-slider></el-form-item>
+            </el-form>
+            <span slot="footer"><el-button @click="showCreateDialog = false">取消</el-button><el-button type="primary" @click="createRoom">创建</el-button></span>
+        </el-dialog>
+
+        <!-- Join Password Dialog -->
+        <el-dialog title="输入房间密码" :visible.sync="showPasswordDialog" width="350px">
+            <el-input v-model="joinPassword" placeholder="请输入房间密码" type="password" show-password @keyup.enter.native="confirmJoinPassword"></el-input>
+            <span slot="footer"><el-button @click="showPasswordDialog = false">取消</el-button><el-button type="primary" @click="confirmJoinPassword">加入</el-button></span>
+        </el-dialog>
+
+        <!-- Color Picker -->
+        <div class="color-picker-overlay" v-if="showColorPicker">
+            <div style="font-size: 18px; font-weight: bold;">请选择颜色</div>
+            <div class="color-picker-grid">
+                <div class="color-picker-btn R" @click="confirmColor('R')"></div>
+                <div class="color-picker-btn Y" @click="confirmColor('Y')"></div>
+                <div class="color-picker-btn G" @click="confirmColor('G')"></div>
+                <div class="color-picker-btn B" @click="confirmColor('B')"></div>
+            </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div class="game-over-overlay" v-if="showGameOver">
+            <div class="game-over-title">[[ gameWinners.includes(mySeat) ? '恭喜获胜!' : '游戏结束' ]]</div>
+            <div style="font-size: 16px; margin-bottom: 20px;">获胜者: [[ winnerNames.join(', ') ]]</div>
+            <el-button type="primary" @click="showGameOver = false; goBack()">返回大厅</el-button>
+        </div>
+    </div>
+
+    <script>
+        var currentUserId = {{ current_user.id }};
+        var currentUsername = '{{ current_user.username }}';
+        var currentDisplayName = '{{ current_user.display_name }}';
+        var currentNickname = '{{ current_user.nickname or "" }}';
+        var isAdminUser = {% if current_user.is_admin or current_user.is_super_admin %}true{% else %}false{% endif %};
+    </script>
+    <script src="/assets/js/vue.min.js"></script>
+    <script src="/assets/js/element-ui.js"></script>
+    <script src="/assets/js/socket.io.js"></script>
+    <script src="/assets/js/game_socket.js"></script>
+    <script src="/assets/js/uno.js"></script>
+    <script src="/assets/js/loading.js"></script>
+</body>
+</html>
