@@ -120,6 +120,38 @@
   - 触发时机：游戏开局、出牌后、抽牌后、房间详情加载时
   - **影响文件**：`assets/js/uno.js`、`assets/js/uno_nomer.js`
 
+#### 七、游戏大厅统一优化
+
+- **统一游戏大厅 API**：
+  - 新增统一的房间管理 API 在 `modules/main/routes.py`：
+    - `GET /api/games/rooms`：获取所有游戏的活跃房间列表
+    - `POST /api/games/rooms`：创建房间（支持选择游戏类型）
+    - `POST /api/games/rooms/<room_id>/join`：加入房间
+  - 统一 API 可跨所有游戏模块访问房间数据
+  - 新增 `GAME_CONFIG` 配置管理各游戏参数
+  - **影响文件**：`modules/main/routes.py`
+
+- **游戏大厅页面功能增强**：
+  - 游戏选择卡片保留（斗地主、象棋、五子棋、UNO、UNO No Mercy）
+  - 新增房间列表展示区，显示所有游戏的房间
+  - 房间卡片显示：游戏类型、房间名、状态、玩家数、房主
+  - 密码保护房间显示锁图标
+  - 房间列表每 5 秒自动刷新
+  - **影响文件**：`templates/games.html`
+
+- **各游戏独立大厅移除**：
+  - 删除各游戏模板中的 Lobby 视图（房间列表部分）
+  - 删除相关的 Lobby CSS 样式
+  - 移除各游戏路由中的大厅逻辑
+  - 访问 `games/xxx` 现在直接显示游戏房间页面（不再显示独立大厅）
+  - **影响文件**：`templates/chess.html`、`templates/gomoku.html`、`templates/doudizhu.html`、`templates/uno.html`、`templates/uno_nomer.html`、`modules/game_chess/routes.py`、`modules/game_gomoku/routes.py`、`modules/game_doudizhu/routes.py`、`modules/game_uno/routes.py`、`modules/game_uno_nomer/routes.py`
+
+- **用户流程优化**：
+  - 统一进入路径：`/board/games`
+  - 在统一大厅创建/选择房间
+  - 加入房间后跳转到对应游戏页面
+  - 退出房间后可返回统一大厅
+
 ### REL3.0.0
 
 **Markdown 笔记 + AI 对话体验大优化 + 联机小游戏**

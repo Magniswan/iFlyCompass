@@ -41,6 +41,7 @@ ENV/
 
 # IDE 配置
 .vscode/
+.trae/
 .idea/
 .claude/
 *.swp
