@@ -70,12 +70,13 @@ def check_ffmpeg():
 
 
 def check_qsv_support():
-    """检测 FFmpeg 是否支持 Intel QSV 硬件编码器"""
+    """检测 FFmpeg 是否支持 Intel QSV 硬件编码器（实际可用）"""
     if not FFMPEG_PATH:
         return False
     try:
-        # 运行 ffmpeg -encoders 并检查是否包含 h264_qsv
         creationflags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        
+        # 第一步：检查 FFmpeg 是否编译了 QSV 支持
         result = subprocess.run(
             [FFMPEG_PATH, '-encoders'],
             stdout=subprocess.PIPE,
@@ -84,20 +85,50 @@ def check_qsv_support():
             creationflags=creationflags,
             timeout=10
         )
-        has_qsv = 'h264_qsv' in result.stdout
-        print(f'[Bili] Intel QSV 硬件加速支持: {has_qsv}')
-        return has_qsv
+        if 'h264_qsv' not in result.stdout:
+            print(f'[Bili] FFmpeg 未编译 QSV 支持')
+            return False
+        
+        # 第二步：尝试实际初始化 QSV 编码器（检测是否真正可用）
+        test_result = subprocess.run(
+            [FFMPEG_PATH, '-f', 'lavfi', '-i', 'nullsrc=s=256x256:d=0.1', 
+             '-c:v', 'h264_qsv', '-f', 'null', '-'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            creationflags=creationflags,
+            timeout=10
+        )
+        
+        if test_result.returncode == 0:
+            print(f'[Bili] Intel QSV 硬件加速支持: True (实际可用)')
+            return True
+        else:
+            stderr_lower = test_result.stderr.lower()
+            if 'mfx' in stderr_lower or 'qsv' in stderr_lower:
+                print(f'[Bili] Intel QSV 硬件加速支持: False (MFX/驱动不可用)')
+            elif 'cannot allocate memory' in stderr_lower or 'out of memory' in stderr_lower:
+                print(f'[Bili] Intel QSV 硬件加速支持: False (内存不足)')
+            else:
+                print(f'[Bili] Intel QSV 硬件加速支持: False (初始化失败)')
+            return False
+            
+    except subprocess.TimeoutExpired:
+        print(f'[Bili] 检测 Intel QSV 支持超时')
+        return False
     except Exception as e:
         print(f'[Bili] 检测 Intel QSV 支持失败: {e}')
         return False
 
 
 def check_nvenc_support():
-    """检测 FFmpeg 是否支持 NVIDIA NVENC 硬件编码器"""
+    """检测 FFmpeg 是否支持 NVIDIA NVENC 硬件编码器（实际可用）"""
     if not FFMPEG_PATH:
         return False
     try:
         creationflags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        
+        # 第一步：检查 FFmpeg 是否编译了 NVENC 支持
         result = subprocess.run(
             [FFMPEG_PATH, '-encoders'],
             stdout=subprocess.PIPE,
@@ -106,9 +137,37 @@ def check_nvenc_support():
             creationflags=creationflags,
             timeout=10
         )
-        has_nvenc = 'h264_nvenc' in result.stdout
-        print(f'[Bili] NVIDIA NVENC 硬件加速支持: {has_nvenc}')
-        return has_nvenc
+        if 'h264_nvenc' not in result.stdout:
+            print(f'[Bili] FFmpeg 未编译 NVENC 支持')
+            return False
+        
+        # 第二步：尝试实际初始化 NVENC 编码器（检测是否真正可用）
+        test_result = subprocess.run(
+            [FFMPEG_PATH, '-f', 'lavfi', '-i', 'nullsrc=s=256x256:d=0.1', 
+             '-c:v', 'h264_nvenc', '-f', 'null', '-'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            creationflags=creationflags,
+            timeout=10
+        )
+        
+        if test_result.returncode == 0:
+            print(f'[Bili] NVIDIA NVENC 硬件加速支持: True (实际可用)')
+            return True
+        else:
+            stderr_lower = test_result.stderr.lower()
+            if 'cuda' in stderr_lower or 'nvenc' in stderr_lower or 'gpu' in stderr_lower:
+                print(f'[Bili] NVIDIA NVENC 硬件加速支持: False (GPU/驱动不可用)')
+            elif 'cannot allocate memory' in stderr_lower or 'out of memory' in stderr_lower:
+                print(f'[Bili] NVIDIA NVENC 硬件加速支持: False (显存不足)')
+            else:
+                print(f'[Bili] NVIDIA NVENC 硬件加速支持: False (初始化失败)')
+            return False
+            
+    except subprocess.TimeoutExpired:
+        print(f'[Bili] 检测 NVIDIA NVENC 支持超时')
+        return False
     except Exception as e:
         print(f'[Bili] 检测 NVIDIA NVENC 支持失败: {e}')
         return False
@@ -149,19 +208,42 @@ def _get_encoder_priority():
 def _is_encoder_error(error_lines, keyword):
     """检查FFmpeg错误输出是否由指定编码器失败引起"""
     kw = keyword.lower()
+    error_text = '\n'.join(line.lower() for line in error_lines)
+    
     for line in error_lines:
         if kw in line.lower():
             return True
-    # QSV 失败时的额外特征：MFX session 错误
+    
     if keyword == 'qsv':
-        for line in error_lines:
-            if 'MFX' in line or 'mfx' in line:
+        qsv_error_patterns = [
+            'mfx', 'qsv', 'vaapi', 
+            'failed to initialize',
+            'not supported',
+            'cannot allocate memory',
+            'out of memory',
+            'device creation failed',
+        ]
+        for pattern in qsv_error_patterns:
+            if pattern in error_text:
                 return True
-    # NVENC 失败时的额外特征：CUDA/GPU 错误
+    
     if keyword == 'nvenc':
-        for line in error_lines:
-            if 'cuda' in line.lower() or 'nvenc' in line.lower():
+        nvenc_error_patterns = [
+            'cuda', 'nvenc', 'gpu', 'nvidia',
+            'failed to initialize',
+            'not supported',
+            'cannot allocate memory',
+            'out of memory',
+            'device creation failed',
+            'driver',
+            'no capable devices',
+            'failed to load nvenc',
+            'cuda_error',
+        ]
+        for pattern in nvenc_error_patterns:
+            if pattern in error_text:
                 return True
+    
     return False
 
 
