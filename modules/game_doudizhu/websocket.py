@@ -1,5 +1,5 @@
-import random
-from datetime import datetime
+﻿import random
+from datetime import datetime, timezone
 from collections import Counter
 from flask_socketio import join_room, leave_room, emit
 from flask import current_app
@@ -217,7 +217,7 @@ def _init_game_state(room):
     
     room['game_state'] = game_state
     room['status'] = 'playing'
-    room['game_start_time'] = datetime.utcnow()
+    room['game_start_time'] = datetime.now(timezone.utc)
     
     # 重置玩家准备状态和角色
     for p in room['players']:
@@ -248,8 +248,8 @@ def _save_game_record(room, winner_ids, reason=''):
             record = GameRecord(
                 game_type='doudizhu',
                 room_id=room['room_id'],
-                started_at=room.get('game_start_time', datetime.utcnow()),
-                ended_at=datetime.utcnow(),
+                started_at=room.get('game_start_time', datetime.now(timezone.utc)),
+                ended_at=datetime.now(timezone.utc),
                 winner_ids=winner_ids,
                 winner_names=winner_names,
                 loser_ids=loser_ids,
@@ -277,7 +277,7 @@ def _save_game_record(room, winner_ids, reason=''):
                 
                 total = stats.wins + stats.losses + stats.draws
                 stats.win_rate = stats.wins / total if total > 0 else 0.0
-                stats.last_played = datetime.utcnow()
+                stats.last_played = datetime.now(timezone.utc)
             
             db.session.commit()
     except Exception as e:
@@ -288,7 +288,7 @@ def _add_system_message(room, message):
     msg = {
         'username': 'system',
         'message': message,
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'type': 'system'
     }
     room['messages'].append(msg)
@@ -900,7 +900,7 @@ def register_socketio_events(socketio):
                 'username': current_user.username,
                 'nickname': getattr(current_user, 'nickname', current_user.username),
                 'message': message,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'type': 'chat'
             }
             room['messages'].append(msg)

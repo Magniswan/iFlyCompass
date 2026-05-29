@@ -2,6 +2,124 @@
 
 ## 版本更新
 
+### REL3.1.0
+
+**服务器时间处理修复 + UNO 联机卡牌游戏 + Bug 修复**
+
+#### 一、时间处理统一修复
+
+- **问题背景**：
+  - 项目中大量使用 `datetime.utcnow()`，该方法在 Python 3.12+ 中已被标记为弃用
+  - `datetime.utcnow()` 返回无时区信息的 naive datetime，而 models 层使用 `datetime.now(timezone.utc)` 返回带时区信息的 aware datetime
+  - 两者混用导致时间比较时抛出 `TypeError`，前端收到 `.isoformat()` 字符串时缺少时区标识
+- **修复方案**：
+  - 统一使用 `datetime.now(timezone.utc)` 获取 UTC 时间
+  - 所有使用 `datetime.utcnow()` 的地方改为 `datetime.now(timezone.utc)`
+  - 所有 `from datetime import datetime` 改为 `from datetime import datetime, timezone`
+- **影响文件**：
+  - `modules/game_chess/websocket.py` — 5处替换
+  - `modules/game_chess/api.py` — 1处替换
+  - `modules/game_gomoku/websocket.py` — 5处替换
+  - `modules/game_gomoku/api.py` — 1处替换
+  - `modules/game_doudizhu/websocket.py` — 5处替换
+  - `modules/game_doudizhu/api.py` — 1处替换
+  - `modules/game_uno/websocket.py` — 5处替换
+  - `modules/game_uno/api.py` — 1处替换
+  - `modules/game_uno_nomer/websocket.py` — 5处替换
+  - `modules/game_uno_nomer/api.py` — 1处替换
+  - `models/game_stats.py` — `default=datetime.utcnow` 改为 `default=lambda: datetime.now(timezone.utc)`
+- **修复效果**：
+  - 所有时间戳携带正确的时区信息（`+00:00`）
+  - 前端可正确解析和显示时间
+  - 消除 Python 3.12+ 的弃用警告
+  - 时间比较操作不再抛出 `TypeError`
+
+#### 二、新增 UNO 和 UNO No Mercy 联机卡牌游戏
+
+新增两款 UNO 游戏，各独立 Blueprint 模块和 Socket.IO namespace。
+
+- **UNO（`modules/game_uno/`）**：
+  - 3-8人联机卡牌游戏，经典 UNO 规则
+  - 108张标准牌组：数字牌 0-9（各色）+ 功能牌（+2/Skip/Reverse）+ 万能牌（Wild/+4）
+  - 颜色/数字匹配出牌，无法出牌时抽牌堆摸1张，可立即打出或跳过
+  - 特殊效果：+2（下家抽2并跳过）、Skip（跳过）、Reverse（反转）、Wild（选色）、Wild+4（选色+下家抽4）
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/uno.html`, `assets/js/uno.js`
+  - Namespace: `/game-uno`, API: `/api/uno`, URL: `/games/uno`
+
+- **UNO No Mercy（`modules/game_uno_nomer/`）**：
+  - 2-10人残酷对战，含56张全新行动牌（总计160+张）
+  - 新增牌种：同色全弃（All Color/每色3张）、全场跳过（Skip Everyone/8张）、+4（N+4/8张）、反转+4（NR+4/8张）、罚抽颜色（Color Roulette/8张）、+6（4张）、+10（4张）
+  - 惩罚叠加规则：+2/+4/+6/+10 可连环叠加，后手需出点数 ≥ 当前累积值的抽牌卡
+  - 抽到能出为止：无法出牌时持续摸牌直到抽出可出牌并自动打出
+  - 25张淘汰：手牌 ≥25 张立即淘汰，手牌归入弃牌堆
+  - 数字7：打出后与任意玩家交换全部手牌
+  - 数字0：全体按出牌方向传递手牌
+  - UNO喊牌/抓人：剩1张时必须喊UNO，被其他玩家抓住罚抽2张
+  - 淘汰制排名：先出完手牌者靠前，最后幸存者获胜；淘汰玩家可观战或退出
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/uno_nomer.html`, `assets/js/uno_nomer.js`
+  - Namespace: `/game-uno-nomer`, API: `/api/uno-nomer`, URL: `/games/uno-nomer`
+
+- **通用功能**：
+  - 游戏大厅（`templates/games.html`）：新增 UNO 和 UNO No Mercy 卡片入口
+  - 小工具页（`templates/tools.html`）：游戏分类页新增两个 UNO 入口
+  - 房间内聊天、战绩统计、密码保护等通用功能
+  - 手牌自动按颜色整理排序（红→黄→绿→蓝→万能牌）
+  - 移动端适配：牌尺寸缩小、横向滚动、紧凑布局
+
+- **代码变更清单**：
+  - `app.py` — 注册 `game_uno_bp`, `game_uno_api_bp`, `game_uno_nomer_bp`, `game_uno_nomer_api_bp` + 两个 socketio 事件
+  - `modules/game_uno/` — 4个文件（新增模块）
+  - `modules/game_uno_nomer/` — 4个文件（新增模块）
+  - `templates/uno.html`, `templates/uno_nomer.html` — 新增
+  - `assets/js/uno.js`, `assets/js/uno_nomer.js` — 新增
+  - `templates/games.html` — 新增 UNO 两款游戏卡片
+  - `templates/tools.html` — 新增 UNO 两款游戏入口
+
+#### 三、斗地主飞机牌型 Bug 修复
+
+- **问题**：`_get_card_type()` 函数未实现飞机牌型识别，玩家无法打出飞机牌（如 333444）或飞机带翅膀（如 333444+57）
+- **修复**：在 `_get_card_type()` 中新增三种飞机牌型：
+  - 纯飞机（`airplane`）：至少2组连续三张，如 `333444`、`555666777`
+  - 飞机带单牌（`airplane_with_singles`）：每组三张带一张单牌，如 `333444+57`
+  - 飞机带对子（`airplane_with_pairs`）：每组三张带一个对子，如 `333444+5577`
+- **验证逻辑**：连续三张不含2/大小王，带牌不能从三张组中拆出
+- **比较逻辑**：`_compare_cards()` 中相同牌型+相同长度比较主rank
+- **影响文件**：`modules/game_doudizhu/websocket.py`
+
+#### 四、其他界面小游戏入口修复
+
+- **问题**：多个页面侧边栏 `handleMenuClick` 方法缺少 `games` 分支，点击"小游戏"无反应或导航到错误页面
+- **修复**：为 11 个页面补全 `games` → `/board/games` 导航：
+  - `system_settings.html`、`md_editor.html`、`chat.html`、`web_proxy.html`
+  - `swipe_test.html`、`passkey_management.html`、`ncm_player.html`、`drop_settings.html`
+  - `chat-test.html`、`announcement_manage.html`、`announcement_center.html`
+- **修正**：`user_management.html` 的 `games` 分支从 `/board` 改为 `/board/games`
+- **影响文件**：12 个 HTML 模板文件
+
+#### 五、UNO No Mercy 同色全弃牌效果修复
+
+- **问题**：打出"同色全弃"牌后，前端未显示其他玩家的手牌数变化
+- **根因**：服务端正确弃牌，但 `card_played` 事件仅更新当前玩家手牌数，其他玩家前端无感知
+- **修复**：
+  - 服务端：All Color 效果执行后新增 `hands_updated` 事件广播所有玩家手牌数
+  - 前端：`card_played` 处理中解析 `effects` 里的 `all_discard_{color}`，本地过滤同色牌
+  - 前端：`hands_updated` 事件更新所有玩家的手牌计数显示
+- **影响文件**：`modules/game_uno_nomer/websocket.py`、`assets/js/uno_nomer.js`
+
+#### 六、万能牌颜色显示修复 + 手牌自动排序
+
+- **万能牌颜色显示**：
+  - **问题**：打出万能牌选色后，前端颜色指示器不更新
+  - **修复**：`card_played` 中 `top_color` 改用 `$set()` 确保 Vue 2 响应式触发；状态栏颜色指示器改为 `16px 圆形 + 中文色名（红/黄/绿/蓝）`
+  - **影响文件**：`assets/js/uno.js`、`assets/js/uno_nomer.js`、`templates/uno.html`、`templates/uno_nomer.html`
+
+- **手牌自动排序**：
+  - 新增 `sortCards()` 方法，按颜色分组排列：红(R) → 黄(Y) → 绿(G) → 蓝(B) → 万能牌，同色内数字小→大、功能牌排后
+  - 触发时机：游戏开局、出牌后、抽牌后、房间详情加载时
+  - **影响文件**：`assets/js/uno.js`、`assets/js/uno_nomer.js`
+
 ### REL3.0.0
 
 **Markdown 笔记 + AI 对话体验大优化 + 联机小游戏**

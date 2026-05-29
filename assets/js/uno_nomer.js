@@ -440,9 +440,25 @@
                 });
 
                 socket.on('hands_swapped', function(d) {
+                    if (d.hands) {
+                        if (d.hands[String(s.mySeat)]) {
+                            s.myCards = d.hands[String(s.mySeat)].slice();
+                            s.sortCards();
+                        }
+                    }
                     if (d.seat1 === s.mySeat || d.seat2 === s.mySeat) {
                         s.$message.warning('手牌已交换！');
                     }
+                });
+
+                socket.on('hands_passed', function(d) {
+                    if (d.hands) {
+                        if (d.hands[String(s.mySeat)]) {
+                            s.myCards = d.hands[String(s.mySeat)].slice();
+                            s.sortCards();
+                        }
+                    }
+                    s.$message.warning('手牌已传递！');
                 });
 
                 socket.on('hands_updated', function(d) {

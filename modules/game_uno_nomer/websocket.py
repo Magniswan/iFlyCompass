@@ -1,5 +1,5 @@
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_socketio import join_room, leave_room, emit
 from flask import current_app
 from flask_login import current_user
@@ -155,7 +155,7 @@ def _init_game_state(room):
 
     room['game_state'] = game_state
     room['status'] = 'playing'
-    room['game_start_time'] = datetime.utcnow()
+    room['game_start_time'] = datetime.now(timezone.utc)
 
     for p in room['players']:
         if p:
@@ -177,8 +177,8 @@ def _save_game_record(room, winner_seats, reason=''):
             record = GameRecord(
                 game_type='uno_nomer',
                 room_id=room['room_id'],
-                started_at=room.get('game_start_time', datetime.utcnow()),
-                ended_at=datetime.utcnow(),
+                started_at=room.get('game_start_time', datetime.now(timezone.utc)),
+                ended_at=datetime.now(timezone.utc),
                 winner_ids=winner_ids,
                 winner_names=[room['players'][s]['username'] for s in winner_seats if room['players'][s]],
                 loser_ids=loser_ids,
@@ -202,13 +202,13 @@ def _save_game_record(room, winner_seats, reason=''):
                 else:
                     stats.losses += 1
                 stats.win_rate = stats.wins / (stats.wins + stats.losses + stats.draws) if (stats.wins + stats.losses + stats.draws) > 0 else 0.0
-                stats.last_played = datetime.utcnow()
+                stats.last_played = datetime.now(timezone.utc)
             db.session.commit()
     except Exception as e:
         print(f"保存游戏记录失败: {e}")
 
 def _add_system_message(room, message):
-    msg = {'username': 'system', 'message': message, 'timestamp': datetime.utcnow().isoformat(), 'type': 'system'}
+    msg = {'username': 'system', 'message': message, 'timestamp': datetime.now(timezone.utc).isoformat(), 'type': 'system'}
     room['messages'].append(msg)
     if len(room['messages']) > 200:
         room['messages'] = room['messages'][-200:]
@@ -556,7 +556,8 @@ def register_socketio_events(socketio):
                         gs['hands'][seat], gs['hands'][target_seat] = target_hand, hand
                         effects.append('hand_swap')
                         emit('hands_swapped', {
-                            'room_id': room_id, 'seat1': seat, 'seat2': target_seat
+                            'room_id': room_id, 'seat1': seat, 'seat2': target_seat,
+                            'hands': {str(seat): gs['hands'][seat][:], str(target_seat): gs['hands'][target_seat][:]}
                         }, room=room_id)
 
             # 数字0：全体传递手牌
@@ -577,6 +578,10 @@ def register_socketio_events(socketio):
                             prev_s = ordered[-1] if i == 0 else ([seat] + ordered)[i - 1]
                             gs['hands'][s] = hands_snapshot[prev_s]
                         effects.append('hands_pass')
+                        emit('hands_passed', {
+                            'room_id': room_id, 'from_seat': seat,
+                            'hands': {str(s): gs['hands'][s][:] for s in [seat] + ordered}
+                        }, room=room_id)
 
             # 反转
             elif card_val == 'rev':
@@ -982,7 +987,7 @@ def register_socketio_events(socketio):
                 'username': current_user.username,
                 'nickname': getattr(current_user, 'nickname', current_user.username),
                 'message': message,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'type': 'chat'
             }
             room['messages'].append(msg)
