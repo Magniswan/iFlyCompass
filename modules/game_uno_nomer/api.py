@@ -71,7 +71,7 @@ def create_room():
     name = data.get('name', 'UNO No Mercy房间')
     password = data.get('password')
     max_players = data.get('max_players', 8)
-    if not isinstance(max_players, int) or max_players < 3 or max_players > 8:
+    if not isinstance(max_players, int) or max_players < 2 or max_players > 10:
         max_players = 8
 
     if not name or not isinstance(name, str) or len(name.strip()) == 0:

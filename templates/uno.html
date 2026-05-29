@@ -224,8 +224,7 @@
                                 <div class="game-status-bar" v-if="room.status === 'playing'">
                                     <span v-if="gameState.phase === 'playing'">
                                         [[ isMyTurn ? '轮到您出牌' : '等待 ' + (currentTurnPlayer ? (currentTurnPlayer.nickname || currentTurnPlayer.username) : '') + ' 出牌' ]]
-                                        <span v-if="gameState.top_color" style="margin-left: 8px;">当前颜色:</span>
-                                        <span v-if="gameState.top_color" class="color-indicator" :class="gameState.top_color" style="display: inline-block; width: 14px; height: 14px; vertical-align: middle; margin-left: 4px;"></span>
+                                        <span v-if="gameState.top_color">当前颜色:<span class="color-indicator" :class="gameState.top_color" style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-left:4px;margin-right:4px"></span>[[ gameState.top_color==='R'?'红':gameState.top_color==='Y'?'黄':gameState.top_color==='G'?'绿':'蓝' ]]</span>
                                     </span>
                                     <span v-else-if="gameState.phase === 'ended'">游戏结束</span>
                                 </div>

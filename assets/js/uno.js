@@ -222,6 +222,7 @@
                         }
                         if (self.gameState.hands && self.gameState.hands[String(self.mySeat)]) {
                             self.myCards = self.gameState.hands[String(self.mySeat)];
+                            self.sortCards();
                         }
                     })
                     .catch(function() {});
@@ -293,6 +294,20 @@
                 if (cardValue === topValue && !this.gameState.top_card.startsWith('W')) return true;
                 return false;
             },
+            sortCards: function() {
+                var colorOrder = { R: 0, Y: 1, G: 2, B: 3 };
+                this.myCards.sort(function(a, b) {
+                    var ca = a.startsWith('W') ? 'Z' : (a[0] || 'Z');
+                    var cb = b.startsWith('W') ? 'Z' : (b[0] || 'Z');
+                    var oa = colorOrder[ca] !== undefined ? colorOrder[ca] : 99;
+                    var ob = colorOrder[cb] !== undefined ? colorOrder[cb] : 99;
+                    if (oa !== ob) return oa - ob;
+                    var va = a.substring(1), vb = b.substring(1);
+                    var na = parseInt(va), nb = parseInt(vb);
+                    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                    return va < vb ? -1 : va > vb ? 1 : 0;
+                });
+            },
             cardColorClass: function(card) {
                 if (card.startsWith('W')) return 'wild';
                 return card[0];
@@ -359,13 +374,17 @@
                 });
                 socket.on('game_started', function(data) {
                     self.room.status = 'playing';
-                    self.gameState = {
-                        phase: data.phase, current_turn: data.current_turn,
-                        top_card: data.top_card, top_color: data.top_color,
-                        direction: data.direction, hands_count: {}
-                    };
+                    var gs = {};
+                    gs.phase = data.phase;
+                    gs.current_turn = data.current_turn;
+                    gs.top_card = data.top_card;
+                    gs.top_color = data.top_color;
+                    gs.direction = data.direction;
+                    gs.hands_count = {};
+                    self.gameState = gs;
                     if (data.hands) {
                         self.myCards = data.hands[String(self.mySeat)] || [];
+                        self.sortCards();
                         for (var s in data.hands) self.gameState.hands_count[s] = data.hands[s].length;
                     }
                     self.selectedCard = null;
@@ -376,12 +395,13 @@
                     self.selectedCard = null;
                 });
                 socket.on('card_played', function(data) {
-                    self.gameState.top_card = data.top_card;
-                    self.gameState.top_color = data.top_color;
+                    self.$set(self.gameState, 'top_card', data.top_card);
+                    self.$set(self.gameState, 'top_color', data.top_color);
                     if (self.gameState.hands_count) self.gameState.hands_count[String(data.seat)] = data.remaining;
                     if (data.seat === self.mySeat) {
                         var idx = self.myCards.indexOf(data.card);
                         if (idx !== -1) self.myCards.splice(idx, 1);
+                        self.sortCards();
                         self.selectedCard = null;
                     }
                     var player = self.room.players[data.seat];
@@ -391,6 +411,7 @@
                 socket.on('player_drew', function(data) {
                     if (data.seat === self.mySeat) {
                         if (data.cards) data.cards.forEach(function(c) { self.myCards.push(c); });
+                        self.sortCards();
                     }
                     if (self.gameState.hands_count && data.seat !== undefined) {
                         var prev = self.gameState.hands_count[String(data.seat)] || 0;
