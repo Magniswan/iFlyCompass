@@ -4,7 +4,7 @@
 
 ### REL3.1.0
 
-**服务器时间处理修复 + UNO 联机卡牌游戏 + Bug 修复**
+**服务器时间处理修复 + UNO 联机卡牌游戏 + mitmproxy 运行方式优化 + Bug 修复**
 
 #### 一、时间处理统一修复
 
@@ -132,12 +132,19 @@
   - **影响文件**：`modules/main/routes.py`
 
 - **游戏大厅页面功能增强**：
-  - 游戏选择卡片保留（斗地主、象棋、五子棋、UNO、UNO No Mercy）
-  - 新增房间列表展示区，显示所有游戏的房间
-  - 房间卡片显示：游戏类型、房间名、状态、玩家数、房主
-  - 密码保护房间显示锁图标
-  - 房间列表每 5 秒自动刷新
-  - **影响文件**：`templates/games.html`
+  - 页面标题改为「游戏大厅」，顶部新增统一的「创建房间」按钮
+  - 新增「活跃房间」区域，展示所有游戏的房间列表：
+    - 房间卡片显示：游戏类型标签（颜色区分）、房间名、状态（等待中/游戏中）、创建者、人数、迷你玩家头像
+    - 密码保护房间显示锁图标
+    - 加入按钮：游戏中/已满时自动禁用，密码房间弹出密码验证对话框
+    - 房间列表每 5 秒自动刷新
+  - 创建房间对话框整合游戏选择：
+    - 5 个游戏卡片网格选择器（斗地主/象棋/五子棋/UNO/UNO No Mercy），点击高亮选中
+    - 选中游戏后自动设置人数范围（UNO 类游戏显示人数滑块）
+    - 统一的房间名称、密码输入
+    - 创建成功后自动跳转到对应游戏页面
+  - 游戏选择卡片移至房间列表下方，保留快速跳转功能
+  - **影响文件**：`templates/games.html`、`assets/css/games.css`
 
 - **各游戏独立大厅移除**：
   - 删除各游戏模板中的 Lobby 视图（房间列表部分）
@@ -151,6 +158,42 @@
   - 在统一大厅创建/选择房间
   - 加入房间后跳转到对应游戏页面
   - 退出房间后可返回统一大厅
+
+#### 八、B站视频硬件编码器检测修复
+
+- **问题背景**：
+  - `check_nvenc_support()` 和 `check_qsv_support()` 仅检查 FFmpeg 是否编译了对应编码器（`ffmpeg -encoders` 输出中是否包含 `h264_nvenc`/`h264_qsv`）
+  - 部分设备 FFmpeg 编译了 NVENC 支持但系统无 NVIDIA GPU 或驱动不兼容，导致日志显示支持但实际编码时失败
+  - 运行时错误识别 `_is_encoder_error()` 仅匹配 `cuda`/`nvenc`/`mfx` 等少量关键字，遗漏多种失败模式
+- **修复方案**：
+  - **两步检测**：先检查编译支持，再实际初始化编码器验证可用性
+    - 使用 `ffmpeg -f lavfi -i nullsrc=s=256x256:d=0.1 -c:v h264_nvenc -f null -` 测试 NVENC
+    - 使用 `ffmpeg -f lavfi -i nullsrc=s=256x256:d=0.1 -c:v h264_qsv -f null -` 测试 QSV
+    - 返回码为 0 才判定为真正可用
+  - **失败原因分析**：根据 stderr 输出区分具体原因
+    - NVENC：`GPU/驱动不可用`、`显存不足`、`初始化失败`
+    - QSV：`MFX/驱动不可用`、`内存不足`、`初始化失败`
+  - **超时保护**：检测超时（10秒）视为不支持，避免阻塞启动
+  - **运行时错误识别增强**：`_is_encoder_error()` 扩展匹配模式
+    - NVENC 新增：`gpu`、`nvidia`、`failed to initialize`、`not supported`、`cannot allocate memory`、`out of memory`、`device creation failed`、`driver`、`no capable devices`、`failed to load nvenc`、`cuda_error`
+    - QSV 新增：`vaapi`、`failed to initialize`、`not supported`、`cannot allocate memory`、`out of memory`、`device creation failed`
+  - **合并错误文本匹配**：将所有错误行合并为完整文本后匹配，避免跨行错误模式遗漏
+- **影响文件**：`modules/bili/download_service.py`
+
+#### 九、mitmproxy 运行方式优化
+
+- **问题背景**：
+  - mitmproxy 使用 `CREATE_NEW_CONSOLE` 标志启动，每次启动都会弹出一个控制台窗口
+  - 窗口不自动激活到前台，用户可能忽略或误关闭
+  - 重启应用时旧进程可能残留，导致端口冲突
+  - `stop_proxy_server()` 仅通过 `_proxy_process.terminate()` 停止，无法可靠终止所有 mitmdump 进程
+- **修复方案**：
+  - **后台静默运行**：将 `CREATE_NEW_CONSOLE` 改为 `CREATE_NO_WINDOW`，mitmproxy 在后台运行，不显示任何窗口
+  - **启动时自动关闭旧进程**：`start_proxy_server()` 启动前先执行 `taskkill /F /IM mitmdump.exe`（Windows）或 `pkill -f mitmdump`（Linux/Mac），确保无残留进程
+  - **停止时可靠终止**：`stop_proxy_server()` 先用 `taskkill`/`pkill` 杀掉所有 mitmdump 进程，再清理子进程对象
+  - **跨平台支持**：Windows 使用 `taskkill`，Linux/Mac 使用 `pkill`
+  - **日志输出**：关闭/停止操作均有 `[WebProxy]` 前缀日志输出
+- **影响文件**：`modules/proxy/proxy_server.py`
 
 ### REL3.0.0
 
@@ -732,7 +775,8 @@
   - 删除本地内置的 mitmproxy 和所有依赖库（tools/mitmproxy/）
   - 改用系统安装的 mitmproxy（`pip install mitmproxy`）
   - 使用 `mitmdump` 命令直接运行
-  - 使用 `CREATE_NEW_CONSOLE` 创建独立的控制台窗口
+  - 使用 `CREATE_NO_WINDOW` 在后台静默运行（无窗口）
+  - 启动时自动关闭旧进程，停止时可靠终止所有 mitmdump 进程
 - **代码变更**：
   - 删除 `_check_local_mitmproxy()` 函数
   - 简化 `_check_mitmproxy()` 只检查系统安装
@@ -749,8 +793,8 @@
 - **优势**：
   | 特性   | 说明                  |
   | ---- | ------------------- |
-  | 进程可见 | 独立窗口显示 mitmproxy 日志 |
-  | 易于调试 | 实时查看所有请求和错误         |
+  | 后台运行 | mitmproxy 静默运行，无窗口干扰 |
+  | 自动清理 | 启动时自动关闭旧进程，避免端口冲突 |
   | 代码简洁 | 减少 44 行代码           |
   | 稳定运行 | 使用正确的 mitmdump 命令   |
 - **使用方法**：
@@ -761,7 +805,7 @@
   # 启动应用
   python app.py
 
-  # mitmproxy 会在独立窗口中运行
+  # mitmproxy 会在后台静默运行
   ```
 
 #### 二、FFmpeg 恢复

@@ -9,72 +9,6 @@
     <link rel="stylesheet" href="/assets/css/element-ui.css">
     <link rel="stylesheet" href="/assets/css/console.css">
     <link rel="stylesheet" href="/assets/css/games.css">
-    <style>
-        .user-menu-container {
-            position: relative;
-            cursor: pointer;
-            z-index: 1000;
-        }
-        .user-info {
-            display: flex;
-            align-items: center;
-            padding: 8px 12px;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        .user-info:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        .user-dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            margin-top: 4px;
-            background: #fff;
-            border: 1px solid #d9d9d9;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            min-width: 200px;
-            overflow: hidden;
-        }
-        .user-dropdown-header {
-            padding: 12px 16px;
-            background: #f5f7fa;
-            border-bottom: 1px solid #e8e8e8;
-        }
-        .user-dropdown-header .display-name {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-        }
-        .user-dropdown-header .username-label {
-            font-size: 12px;
-            color: #999;
-            margin-top: 2px;
-        }
-        .user-dropdown-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            color: #333;
-        }
-        .user-dropdown-item:hover {
-            background-color: #f5f7fa;
-        }
-        .user-dropdown-divider {
-            height: 1px;
-            background-color: #e8e8e8;
-            margin: 4px 0;
-        }
-        .user-dropdown-item.logout-item {
-            color: #ff4d4f;
-        }
-        .user-dropdown-item.logout-item:hover {
-            background-color: #fff1f0;
-        }
-    </style>
 </head>
 <body>
     <div id="loading-overlay">
@@ -124,7 +58,7 @@
                     </el-menu-item>
                 </el-menu>
             </el-aside>
-            
+
             <el-container>
                 <el-header class="console-header">
                     <div class="header-left">
@@ -154,7 +88,7 @@
                         </div>
                     </div>
                 </el-header>
-                
+
                 <el-main class="console-content">
                     <div class="game-hall">
                         <div class="game-hall-header">
@@ -174,14 +108,14 @@
                                     <div class="unified-room-card-header">
                                         <div class="room-card-name">
                                             [[ roomItem.name ]]
-                                            <i v-if="roomItem.has_password" class="el-icon-lock" style="color: #909399; margin-left: 4px; font-size: 14px;"></i>
+                                            <i v-if="roomItem.has_password" class="el-icon-lock room-card-lock-icon"></i>
                                         </div>
                                         <span class="room-card-status" :class="roomItem.status">
-                                            [[ roomItem.status === 'playing' ? '游戏中' : '等待中' ]]
+                                            [[ getRoomStatusText(roomItem.status) ]]
                                         </span>
                                     </div>
                                     <div class="unified-room-card-body">
-                                        <el-tag size="mini" :type="getGameTagType(roomItem.game_type)">[[ roomItem.game_type_name ]]</el-tag>
+                                        <el-tag size="mini" :type="getGameTagType(roomItem.game_type)">[[ getGameName(roomItem.game_type) ]]</el-tag>
                                         <div class="room-card-info">
                                             <div>创建者: [[ roomItem.creator_name ]]</div>
                                             <div>[[ roomItem.player_count ]]/[[ roomItem.max_players ]] 人</div>
@@ -191,7 +125,7 @@
                                         <div class="room-card-players-mini">
                                             <div v-for="n in Math.min(roomItem.max_players, 4)" :key="n" class="player-avatar-mini"
                                                 :class="{ empty: !roomItem.players || !roomItem.players[n-1] }">
-                                                [[ roomItem.players && roomItem.players[n-1] ? roomItem.players[n-1].username.charAt(0).toUpperCase() : '?' ]]
+                                                [[ getPlayerInitial(roomItem, n-1) ]]
                                             </div>
                                             <div v-if="roomItem.max_players > 4" class="player-avatar-mini more">
                                                 +[[ roomItem.max_players - 4 ]]
@@ -199,12 +133,12 @@
                                         </div>
                                         <el-button type="primary" size="mini" @click="onJoinRoomClick(roomItem)"
                                             :disabled="roomItem.status === 'playing' || roomItem.player_count >= roomItem.max_players">
-                                            [[ roomItem.status === 'playing' ? '游戏中' : (roomItem.player_count >= roomItem.max_players ? '已满' : '加入') ]]
+                                            [[ getJoinButtonText(roomItem) ]]
                                         </el-button>
                                     </div>
                                 </div>
                             </div>
-                            <div v-else style="display: flex; justify-content: center; align-items: center; height: 200px;">
+                            <div v-else class="rooms-empty">
                                 <el-empty description="暂无活跃房间，快去创建一个吧"></el-empty>
                             </div>
                         </div>
@@ -214,49 +148,17 @@
                                 <h3>选择游戏</h3>
                             </div>
                             <div class="game-cards-grid">
-                                <el-card class="game-card" shadow="hover" @click.native="goToGame('doudizhu')">
+                                <el-card v-for="g in gameList" :key="g.type" class="game-card" shadow="hover" @click.native="goToGame(g.type)">
                                     <div class="game-card-body">
-                                        <i class="material-icons game-card-icon" style="color: #e6a23c;">style</i>
-                                        <div class="game-card-title">斗地主</div>
-                                        <div class="game-card-desc">3人联机对战，经典扑克游戏</div>
-                                        <el-tag size="small" type="warning">3人</el-tag>
-                                    </div>
-                                </el-card>
-                                <el-card class="game-card" shadow="hover" @click.native="goToGame('chess')">
-                                    <div class="game-card-body">
-                                        <i class="material-icons game-card-icon" style="color: #333;">grid_on</i>
-                                        <div class="game-card-title">象棋</div>
-                                        <div class="game-card-desc">2人联机对弈，传统中国象棋</div>
-                                        <el-tag size="small">2人</el-tag>
-                                    </div>
-                                </el-card>
-                                <el-card class="game-card" shadow="hover" @click.native="goToGame('gomoku')">
-                                    <div class="game-card-body">
-                                        <i class="material-icons game-card-icon" style="color: #409eff;">apps</i>
-                                        <div class="game-card-title">五子棋</div>
-                                        <div class="game-card-desc">2人联机对弈，15×15 棋盘</div>
-                                        <el-tag size="small" type="info">2人</el-tag>
-                                    </div>
-                                </el-card>
-                                <el-card class="game-card" shadow="hover" @click.native="goToGame('uno')">
-                                    <div class="game-card-body">
-                                        <i class="material-icons game-card-icon" style="color: #e74c3c;">view_carousel</i>
-                                        <div class="game-card-title">UNO</div>
-                                        <div class="game-card-desc">3-8人联机对战，经典卡牌游戏</div>
-                                        <el-tag size="small" type="danger">3-8人</el-tag>
-                                    </div>
-                                </el-card>
-                                <el-card class="game-card" shadow="hover" @click.native="goToGame('uno-nomer')">
-                                    <div class="game-card-body">
-                                        <i class="material-icons game-card-icon" style="color: #c0392b;">whatshot</i>
-                                        <div class="game-card-title">UNO No Mercy</div>
-                                        <div class="game-card-desc">2-10人残酷对战，淘汰制</div>
-                                        <el-tag size="small" type="danger">2-10人</el-tag>
+                                        <i class="material-icons game-card-icon" :class="'color-' + g.type">[[ g.icon ]]</i>
+                                        <div class="game-card-title">[[ g.name ]]</div>
+                                        <div class="game-card-desc">[[ g.desc ]]</div>
+                                        <el-tag size="small" :type="g.tagType">[[ g.players ]]</el-tag>
                                     </div>
                                 </el-card>
                             </div>
                         </div>
-                        
+
                         <div class="recent-records">
                             <h3>最近对局</h3>
                             <el-table :data="recentRecords" size="small" style="width: 100%" v-loading="recordsLoading">
@@ -270,17 +172,16 @@
                 </el-main>
             </el-container>
         </el-container>
-        
-        <!-- 创建房间对话框 -->
+
         <el-dialog title="创建房间" :visible.sync="showCreateDialog" width="460px" @close="resetCreateForm">
             <el-form :model="createForm" label-width="80px">
                 <el-form-item label="选择游戏">
                     <div class="game-select-grid">
-                        <div v-for="g in gameOptions" :key="g.value" class="game-select-item"
-                            :class="{ active: createForm.gameType === g.value }"
-                            @click="selectGameType(g.value)">
+                        <div v-for="g in gameList" :key="g.type" class="game-select-item"
+                            :class="{ active: createForm.gameType === g.type }"
+                            @click="selectGameType(g.type)">
                             <i class="material-icons" :style="{ color: g.color }">[[ g.icon ]]</i>
-                            <span>[[ g.label ]]</span>
+                            <span>[[ g.name ]]</span>
                             <el-tag size="mini" :type="g.tagType">[[ g.players ]]</el-tag>
                         </div>
                     </div>
@@ -301,7 +202,6 @@
             </span>
         </el-dialog>
 
-        <!-- 密码验证对话框 -->
         <el-dialog title="加入房间" :visible.sync="showPasswordDialog" width="360px">
             <el-form label-width="80px">
                 <el-form-item label="房间密码">
@@ -315,7 +215,6 @@
             </span>
         </el-dialog>
 
-        <!-- 个人设置对话框 -->
         <el-dialog title="个人设置" :visible.sync="profileDialogVisible" width="450px">
             <el-form :model="profileForm" label-width="80px">
                 <el-form-item label="用户名">
@@ -335,6 +234,23 @@
     <script src="/assets/js/vue.min.js"></script>
     <script src="/assets/js/element-ui.js"></script>
     <script>
+        var MENU_ROUTES = {
+            dashboard: '/board',
+            tools: '/board/tools',
+            games: '/board/games',
+            chat: '/board/chat',
+            users: '/board/users',
+            settings: '/board/settings'
+        };
+
+        var GAMES = {
+            doudizhu: { name: '斗地主', icon: 'style', color: '#e6a23c', players: '3人', tagType: 'warning', max_players: 3, desc: '3人联机对战，经典扑克游戏' },
+            chess: { name: '象棋', icon: 'grid_on', color: '#333', players: '2人', tagType: '', max_players: 2, desc: '2人联机对弈，传统中国象棋' },
+            gomoku: { name: '五子棋', icon: 'apps', color: '#409eff', players: '2人', tagType: 'info', max_players: 2, desc: '2人联机对弈，15×15 棋盘' },
+            uno: { name: 'UNO', icon: 'view_carousel', color: '#e74c3c', players: '3-8人', tagType: 'danger', max_players: 8, min_players: 3, desc: '3-8人联机对战，经典卡牌游戏' },
+            'uno-nomer': { name: 'UNO No Mercy', icon: 'whatshot', color: '#c0392b', players: '2-10人', tagType: 'danger', max_players: 10, min_players: 2, desc: '2-10人残酷对战，淘汰制' }
+        };
+
         new Vue({
             el: '#app',
             delimiters: ['[[', ']]'],
@@ -353,44 +269,57 @@
                 allRooms: [],
                 roomsLoading: false,
                 roomsRefreshTimer: null,
+                pageHidden: false,
                 showCreateDialog: false,
                 createLoading: false,
                 createForm: { gameType: 'chess', name: '', password: '', maxPlayers: 2 },
-                gameOptions: [
-                    { value: 'doudizhu', label: '斗地主', icon: 'style', color: '#e6a23c', players: '3人', tagType: 'warning' },
-                    { value: 'chess', label: '象棋', icon: 'grid_on', color: '#333', players: '2人', tagType: '' },
-                    { value: 'gomoku', label: '五子棋', icon: 'apps', color: '#409eff', players: '2人', tagType: 'info' },
-                    { value: 'uno', label: 'UNO', icon: 'view_carousel', color: '#e74c3c', players: '3-8人', tagType: 'danger' },
-                    { value: 'uno-nomer', label: 'UNO No Mercy', icon: 'whatshot', color: '#c0392b', players: '2-10人', tagType: 'danger' }
-                ],
-                gameConfigMap: {
-                    'doudizhu': { name: '斗地主', max_players: 3 },
-                    'chess': { name: '象棋', max_players: 2 },
-                    'gomoku': { name: '五子棋', max_players: 2 },
-                    'uno': { name: 'UNO', max_players: 8, min_players: 3 },
-                    'uno-nomer': { name: 'UNO No Mercy', max_players: 10, min_players: 2 }
-                },
                 showPasswordDialog: false,
                 pendingRoom: null,
                 joinPassword: ''
+            },
+            computed: {
+                gameList: function() {
+                    var list = [];
+                    var keys = Object.keys(GAMES);
+                    for (var i = 0; i < keys.length; i++) {
+                        var k = keys[i];
+                        var g = GAMES[k];
+                        list.push({
+                            type: k,
+                            name: g.name,
+                            icon: g.icon,
+                            color: g.color,
+                            players: g.players,
+                            tagType: g.tagType,
+                            desc: g.desc
+                        });
+                    }
+                    return list;
+                },
+                selectedGameConfig: function() {
+                    return GAMES[this.createForm.gameType] || null;
+                }
             },
             mounted: function() {
                 this.loadRecentRecords();
                 this.loadAllRooms();
                 var self = this;
-                this.roomsRefreshTimer = setInterval(function() { self.loadAllRooms(); }, 5000);
+                this.roomsRefreshTimer = setInterval(function() {
+                    if (!self.pageHidden) self.loadAllRooms();
+                }, 5000);
+                document.addEventListener('visibilitychange', this.handleVisibilityChange);
             },
             beforeDestroy: function() {
                 if (this.roomsRefreshTimer) {
                     clearInterval(this.roomsRefreshTimer);
                 }
-            },
-            computed: {
-                selectedGameConfig: function() {
-                    return this.gameConfigMap[this.createForm.gameType] || null;
-                }
+                document.removeEventListener('visibilitychange', this.handleVisibilityChange);
             },
             methods: {
+                handleVisibilityChange: function() {
+                    this.pageHidden = document.hidden;
+                    if (!document.hidden) this.loadAllRooms();
+                },
                 toggleCollapse: function() {
                     this.isCollapse = !this.isCollapse;
                 },
@@ -399,27 +328,39 @@
                 },
                 handleMenuClick: function(key) {
                     this.userMenuVisible = false;
-                    if (key === 'dashboard') {
-                        window.location.href = '/board';
-                    } else if (key === 'tools') {
-                        window.location.href = '/board/tools';
-                    } else if (key === 'games') {
-                        window.location.href = '/board/games';
-                    } else if (key === 'users') {
-                        window.location.href = '/board/users';
-                    } else if (key === 'chat') {
-                        window.location.href = '/board/chat';
-                    } else if (key === 'settings') {
-                        window.location.href = '/board/settings';
+                    if (MENU_ROUTES[key]) {
+                        window.location.href = MENU_ROUTES[key];
                     }
                 },
                 goToGame: function(game) {
                     window.location.href = '/games/' + game;
                 },
+                getGameName: function(gameType) {
+                    return GAMES[gameType] ? GAMES[gameType].name : gameType;
+                },
+                getGameTagType: function(gameType) {
+                    return GAMES[gameType] ? GAMES[gameType].tagType : '';
+                },
+                getRoomStatusText: function(status) {
+                    return status === 'playing' ? '游戏中' : '等待中';
+                },
+                getJoinButtonText: function(roomItem) {
+                    if (roomItem.status === 'playing') return '游戏中';
+                    if (roomItem.player_count >= roomItem.max_players) return '已满';
+                    return '加入';
+                },
+                getPlayerInitial: function(roomItem, index) {
+                    return (roomItem.players && roomItem.players[index])
+                        ? roomItem.players[index].username.charAt(0).toUpperCase()
+                        : '?';
+                },
                 loadAllRooms: function() {
                     var self = this;
                     fetch('/api/games/rooms')
-                        .then(function(r) { return r.json(); })
+                        .then(function(r) {
+                            if (!r.ok) throw new Error(r.status);
+                            return r.json();
+                        })
                         .then(function(data) {
                             self.allRooms = data || [];
                         })
@@ -427,17 +368,13 @@
                             console.error('加载房间列表失败:', e);
                         });
                 },
-                getGameTagType: function(gameType) {
-                    var map = { doudizhu: 'warning', chess: '', gomoku: 'info', uno: 'danger', 'uno-nomer': 'danger' };
-                    return map[gameType] || '';
-                },
                 openCreateDialog: function() {
                     this.createForm = { gameType: 'chess', name: '', password: '', maxPlayers: 2 };
                     this.showCreateDialog = true;
                 },
                 selectGameType: function(gameType) {
                     this.createForm.gameType = gameType;
-                    var config = this.gameConfigMap[gameType];
+                    var config = GAMES[gameType];
                     if (config) {
                         this.createForm.maxPlayers = config.max_players;
                     }
@@ -466,7 +403,10 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(body)
                     })
-                    .then(function(response) { return response.json(); })
+                    .then(function(response) {
+                        if (!response.ok) throw new Error(response.status);
+                        return response.json();
+                    })
                     .then(function(data) {
                         self.createLoading = false;
                         if (data.error) {
@@ -475,8 +415,7 @@
                         }
                         self.showCreateDialog = false;
                         self.$message.success('房间创建成功，正在跳转...');
-                        var gameType = self.createForm.gameType;
-                        window.location.href = '/games/' + gameType;
+                        window.location.href = '/games/' + self.createForm.gameType;
                     })
                     .catch(function(error) {
                         self.createLoading = false;
@@ -518,9 +457,9 @@
                     })
                     .then(function(response) {
                         if (response.status === 401) {
-                            self.$message.error('房间密码错误');
                             throw new Error('密码错误');
                         }
+                        if (!response.ok) throw new Error(response.status);
                         return response.json();
                     })
                     .then(function(data) {
@@ -532,7 +471,9 @@
                         window.location.href = '/games/' + roomItem.game_type;
                     })
                     .catch(function(error) {
-                        if (error.message !== '密码错误') {
+                        if (error.message === '密码错误') {
+                            self.$message.error('房间密码错误');
+                        } else {
                             console.error('加入房间失败:', error);
                             self.$message.error('加入房间失败');
                         }
@@ -542,13 +483,15 @@
                     var self = this;
                     self.recordsLoading = true;
                     fetch('/api/game/records?limit=10')
-                        .then(function(r) { return r.json(); })
+                        .then(function(r) {
+                            if (!r.ok) throw new Error(r.status);
+                            return r.json();
+                        })
                         .then(function(data) {
-                                    var typeNames = { doudizhu: '斗地主', chess: '象棋', gomoku: '五子棋', uno: 'UNO', uno_nomer: 'UNO No Mercy' };
                             self.recentRecords = (data.records || []).map(function(r) {
                                 var winners = r.winner_names || [];
                                 return {
-                                    game_type_name: typeNames[r.game_type] || r.game_type,
+                                    game_type_name: self.getGameName(r.game_type),
                                     result_str: winners.length > 0 ? winners.join(', ') + ' 获胜' : '和棋',
                                     ended_at_str: r.ended_at ? new Date(r.ended_at).toLocaleString() : '-'
                                 };
@@ -572,7 +515,10 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(this.profileForm)
                     })
-                    .then(function(r) { return r.json(); })
+                    .then(function(r) {
+                        if (!r.ok) throw new Error(r.status);
+                        return r.json();
+                    })
                     .then(function(data) {
                         if (data.error) {
                             self.$message.error(data.error);

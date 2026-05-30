@@ -1,4 +1,81 @@
-/* 游戏大厅样式 */
+/* ========== 用户下拉菜单 ========== */
+.user-menu-container {
+    position: relative;
+    cursor: pointer;
+    z-index: 1000;
+}
+
+.user-menu-container .user-info {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.user-menu-container .user-info:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.user-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    overflow: hidden;
+}
+
+.user-dropdown-header {
+    padding: 12px 16px;
+    background: #f5f7fa;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.user-dropdown-header .display-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.user-dropdown-header .username-label {
+    font-size: 12px;
+    color: #999;
+    margin-top: 2px;
+}
+
+.user-dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    color: #333;
+}
+
+.user-dropdown-item:hover {
+    background-color: #f5f7fa;
+}
+
+.user-dropdown-divider {
+    height: 1px;
+    background-color: #e8e8e8;
+    margin: 4px 0;
+}
+
+.user-dropdown-item.logout-item {
+    color: #ff4d4f;
+}
+
+.user-dropdown-item.logout-item:hover {
+    background-color: #fff1f0;
+}
+
+/* ========== 游戏大厅 ========== */
 .game-hall {
     padding: 20px;
 }
@@ -67,6 +144,12 @@
     max-width: 180px;
 }
 
+.room-card-lock-icon {
+    color: #909399;
+    margin-left: 4px;
+    font-size: 14px;
+}
+
 .room-card-status {
     font-size: 12px;
     padding: 2px 8px;
@@ -131,6 +214,14 @@
     font-size: 10px;
 }
 
+.rooms-empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+}
+
+/* ========== 游戏卡片 ========== */
 .game-cards {
     margin-bottom: 30px;
 }
@@ -151,7 +242,48 @@
     gap: 20px;
 }
 
-/* 游戏选择器（创建房间对话框内） */
+.game-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.game-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.game-card-body {
+    text-align: center;
+    padding: 30px 20px;
+}
+
+.game-card-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.game-card-icon.color-doudizhu { color: #e6a23c; }
+.game-card-icon.color-chess { color: #333; }
+.game-card-icon.color-gomoku { color: #409eff; }
+.game-card-icon.color-uno { color: #e74c3c; }
+.game-card-icon.color-uno-nomer { color: #c0392b; }
+
+.game-card-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.game-card-desc {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 12px;
+}
+
+/* ========== 游戏选择器（创建房间对话框内） ========== */
 .game-select-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -185,42 +317,7 @@
     margin-bottom: 2px;
 }
 
-.game-card {
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-radius: 8px;
-}
-
-.game-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.game-card-body {
-    text-align: center;
-    padding: 30px 20px;
-}
-
-.game-card-icon {
-    font-size: 64px;
-    margin-bottom: 16px;
-    display: block;
-}
-
-.game-card-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: #333;
-}
-
-.game-card-desc {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 12px;
-}
-
-/* 游戏房间/大厅共享样式 */
+/* ========== 游戏房间/大厅共享样式 ========== */
 .game-lobby {
     padding: 20px;
     height: 100%;
@@ -276,7 +373,7 @@
     padding-top: 10px;
 }
 
-/* 游戏房间布局 */
+/* ========== 游戏房间布局 ========== */
 .game-room {
     display: flex;
     height: calc(100vh - 60px);
@@ -294,7 +391,7 @@
     overflow: hidden;
 }
 
-/* 玩家信息 */
+/* ========== 玩家信息 ========== */
 .players-top {
     display: flex;
     justify-content: center;
@@ -343,7 +440,7 @@
     box-shadow: 0 0 0 3px #67c23a;
 }
 
-/* 出牌区 */
+/* ========== 出牌区 ========== */
 .play-area {
     min-height: 100px;
     display: flex;
@@ -375,7 +472,7 @@
     font-weight: bold;
 }
 
-/* 斗地主手牌 */
+/* ========== 斗地主手牌 ========== */
 .my-area {
     display: flex;
     flex-direction: column;
@@ -399,7 +496,7 @@
     padding: 5px;
 }
 
-/* 扑克牌样式 */
+/* ========== 扑克牌样式 ========== */
 .card {
     width: 38px;
     height: 54px;
@@ -440,19 +537,16 @@
     line-height: 1;
 }
 
-/* 红色牌 */
 .card-red .card-rank,
 .card-red .card-suit {
     color: #f56c6c;
 }
 
-/* 黑色牌 */
 .card-black .card-rank,
 .card-black .card-suit {
     color: #333;
 }
 
-/* 小王大王 */
 .card-joker {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
@@ -464,7 +558,7 @@
     font-size: 12px;
 }
 
-/* 操作按钮 */
+/* ========== 操作按钮 ========== */
 .action-buttons {
     display: flex;
     gap: 10px;
@@ -477,7 +571,7 @@
     margin-top: 5px;
 }
 
-/* 聊天面板 */
+/* ========== 聊天面板 ========== */
 .chat-panel {
     width: 280px;
     display: flex;
@@ -549,7 +643,7 @@
     flex: 1;
 }
 
-/* Canvas 游戏区 */
+/* ========== Canvas 游戏区 ========== */
 .canvas-container {
     display: flex;
     flex-direction: column;
@@ -576,7 +670,7 @@
     color: #409eff;
 }
 
-/* 游戏结束覆盖层 */
+/* ========== 游戏结束覆盖层 ========== */
 .game-over-overlay {
     position: absolute;
     top: 0;
@@ -602,7 +696,7 @@
     margin-bottom: 20px;
 }
 
-/* 最近战绩 */
+/* ========== 最近战绩 ========== */
 .recent-records {
     margin-top: 30px;
 }
@@ -613,37 +707,37 @@
     color: #333;
 }
 
-/* 响应式 */
+/* ========== 响应式 ========== */
 @media (max-width: 768px) {
     .game-room {
         flex-direction: column;
     }
-    
+
     .chat-panel {
         width: 100%;
         height: 200px;
         border-left: none;
         border-top: 1px solid #e0e0e0;
     }
-    
+
     .game-table {
         padding: 10px;
     }
-    
+
     .players-top {
         gap: 20px;
     }
-    
+
     .my-cards {
         max-width: 100%;
     }
-    
+
     .card {
         width: 32px;
         height: 46px;
         font-size: 12px;
     }
-    
+
     .game-cards-grid {
         grid-template-columns: 1fr;
     }
