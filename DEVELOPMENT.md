@@ -2,6 +2,199 @@
 
 ## 版本更新
 
+### REL3.1.0
+
+**服务器时间处理修复 + UNO 联机卡牌游戏 + mitmproxy 运行方式优化 + Bug 修复**
+
+#### 一、时间处理统一修复
+
+- **问题背景**：
+  - 项目中大量使用 `datetime.utcnow()`，该方法在 Python 3.12+ 中已被标记为弃用
+  - `datetime.utcnow()` 返回无时区信息的 naive datetime，而 models 层使用 `datetime.now(timezone.utc)` 返回带时区信息的 aware datetime
+  - 两者混用导致时间比较时抛出 `TypeError`，前端收到 `.isoformat()` 字符串时缺少时区标识
+- **修复方案**：
+  - 统一使用 `datetime.now(timezone.utc)` 获取 UTC 时间
+  - 所有使用 `datetime.utcnow()` 的地方改为 `datetime.now(timezone.utc)`
+  - 所有 `from datetime import datetime` 改为 `from datetime import datetime, timezone`
+- **影响文件**：
+  - `modules/game_chess/websocket.py` — 5处替换
+  - `modules/game_chess/api.py` — 1处替换
+  - `modules/game_gomoku/websocket.py` — 5处替换
+  - `modules/game_gomoku/api.py` — 1处替换
+  - `modules/game_doudizhu/websocket.py` — 5处替换
+  - `modules/game_doudizhu/api.py` — 1处替换
+  - `modules/game_uno/websocket.py` — 5处替换
+  - `modules/game_uno/api.py` — 1处替换
+  - `modules/game_uno_nomer/websocket.py` — 5处替换
+  - `modules/game_uno_nomer/api.py` — 1处替换
+  - `models/game_stats.py` — `default=datetime.utcnow` 改为 `default=lambda: datetime.now(timezone.utc)`
+- **修复效果**：
+  - 所有时间戳携带正确的时区信息（`+00:00`）
+  - 前端可正确解析和显示时间
+  - 消除 Python 3.12+ 的弃用警告
+  - 时间比较操作不再抛出 `TypeError`
+
+#### 二、新增 UNO 和 UNO No Mercy 联机卡牌游戏
+
+新增两款 UNO 游戏，各独立 Blueprint 模块和 Socket.IO namespace。
+
+- **UNO（`modules/game_uno/`）**：
+  - 3-8人联机卡牌游戏，经典 UNO 规则
+  - 108张标准牌组：数字牌 0-9（各色）+ 功能牌（+2/Skip/Reverse）+ 万能牌（Wild/+4）
+  - 颜色/数字匹配出牌，无法出牌时抽牌堆摸1张，可立即打出或跳过
+  - 特殊效果：+2（下家抽2并跳过）、Skip（跳过）、Reverse（反转）、Wild（选色）、Wild+4（选色+下家抽4）
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/uno.html`, `assets/js/uno.js`
+  - Namespace: `/game-uno`, API: `/api/uno`, URL: `/games/uno`
+
+- **UNO No Mercy（`modules/game_uno_nomer/`）**：
+  - 2-10人残酷对战，含56张全新行动牌（总计160+张）
+  - 新增牌种：同色全弃（All Color/每色3张）、全场跳过（Skip Everyone/8张）、+4（N+4/8张）、反转+4（NR+4/8张）、罚抽颜色（Color Roulette/8张）、+6（4张）、+10（4张）
+  - 惩罚叠加规则：+2/+4/+6/+10 可连环叠加，后手需出点数 ≥ 当前累积值的抽牌卡
+  - 抽到能出为止：无法出牌时持续摸牌直到抽出可出牌并自动打出
+  - 25张淘汰：手牌 ≥25 张立即淘汰，手牌归入弃牌堆
+  - 数字7：打出后与任意玩家交换全部手牌
+  - 数字0：全体按出牌方向传递手牌
+  - UNO喊牌/抓人：剩1张时必须喊UNO，被其他玩家抓住罚抽2张
+  - 淘汰制排名：先出完手牌者靠前，最后幸存者获胜；淘汰玩家可观战或退出
+  - 文件：`__init__.py`, `routes.py`, `api.py`, `websocket.py`
+  - 前端：`templates/uno_nomer.html`, `assets/js/uno_nomer.js`
+  - Namespace: `/game-uno-nomer`, API: `/api/uno-nomer`, URL: `/games/uno-nomer`
+
+- **通用功能**：
+  - 游戏大厅（`templates/games.html`）：新增 UNO 和 UNO No Mercy 卡片入口
+  - 小工具页（`templates/tools.html`）：游戏分类页新增两个 UNO 入口
+  - 房间内聊天、战绩统计、密码保护等通用功能
+  - 手牌自动按颜色整理排序（红→黄→绿→蓝→万能牌）
+  - 移动端适配：牌尺寸缩小、横向滚动、紧凑布局
+
+- **代码变更清单**：
+  - `app.py` — 注册 `game_uno_bp`, `game_uno_api_bp`, `game_uno_nomer_bp`, `game_uno_nomer_api_bp` + 两个 socketio 事件
+  - `modules/game_uno/` — 4个文件（新增模块）
+  - `modules/game_uno_nomer/` — 4个文件（新增模块）
+  - `templates/uno.html`, `templates/uno_nomer.html` — 新增
+  - `assets/js/uno.js`, `assets/js/uno_nomer.js` — 新增
+  - `templates/games.html` — 新增 UNO 两款游戏卡片
+  - `templates/tools.html` — 新增 UNO 两款游戏入口
+
+#### 三、斗地主飞机牌型 Bug 修复
+
+- **问题**：`_get_card_type()` 函数未实现飞机牌型识别，玩家无法打出飞机牌（如 333444）或飞机带翅膀（如 333444+57）
+- **修复**：在 `_get_card_type()` 中新增三种飞机牌型：
+  - 纯飞机（`airplane`）：至少2组连续三张，如 `333444`、`555666777`
+  - 飞机带单牌（`airplane_with_singles`）：每组三张带一张单牌，如 `333444+57`
+  - 飞机带对子（`airplane_with_pairs`）：每组三张带一个对子，如 `333444+5577`
+- **验证逻辑**：连续三张不含2/大小王，带牌不能从三张组中拆出
+- **比较逻辑**：`_compare_cards()` 中相同牌型+相同长度比较主rank
+- **影响文件**：`modules/game_doudizhu/websocket.py`
+
+#### 四、其他界面小游戏入口修复
+
+- **问题**：多个页面侧边栏 `handleMenuClick` 方法缺少 `games` 分支，点击"小游戏"无反应或导航到错误页面
+- **修复**：为 11 个页面补全 `games` → `/board/games` 导航：
+  - `system_settings.html`、`md_editor.html`、`chat.html`、`web_proxy.html`
+  - `swipe_test.html`、`passkey_management.html`、`ncm_player.html`、`drop_settings.html`
+  - `chat-test.html`、`announcement_manage.html`、`announcement_center.html`
+- **修正**：`user_management.html` 的 `games` 分支从 `/board` 改为 `/board/games`
+- **影响文件**：12 个 HTML 模板文件
+
+#### 五、UNO No Mercy 同色全弃牌效果修复
+
+- **问题**：打出"同色全弃"牌后，前端未显示其他玩家的手牌数变化
+- **根因**：服务端正确弃牌，但 `card_played` 事件仅更新当前玩家手牌数，其他玩家前端无感知
+- **修复**：
+  - 服务端：All Color 效果执行后新增 `hands_updated` 事件广播所有玩家手牌数
+  - 前端：`card_played` 处理中解析 `effects` 里的 `all_discard_{color}`，本地过滤同色牌
+  - 前端：`hands_updated` 事件更新所有玩家的手牌计数显示
+- **影响文件**：`modules/game_uno_nomer/websocket.py`、`assets/js/uno_nomer.js`
+
+#### 六、万能牌颜色显示修复 + 手牌自动排序
+
+- **万能牌颜色显示**：
+  - **问题**：打出万能牌选色后，前端颜色指示器不更新
+  - **修复**：`card_played` 中 `top_color` 改用 `$set()` 确保 Vue 2 响应式触发；状态栏颜色指示器改为 `16px 圆形 + 中文色名（红/黄/绿/蓝）`
+  - **影响文件**：`assets/js/uno.js`、`assets/js/uno_nomer.js`、`templates/uno.html`、`templates/uno_nomer.html`
+
+- **手牌自动排序**：
+  - 新增 `sortCards()` 方法，按颜色分组排列：红(R) → 黄(Y) → 绿(G) → 蓝(B) → 万能牌，同色内数字小→大、功能牌排后
+  - 触发时机：游戏开局、出牌后、抽牌后、房间详情加载时
+  - **影响文件**：`assets/js/uno.js`、`assets/js/uno_nomer.js`
+
+#### 七、游戏大厅统一优化
+
+- **统一游戏大厅 API**：
+  - 新增统一的房间管理 API 在 `modules/main/routes.py`：
+    - `GET /api/games/rooms`：获取所有游戏的活跃房间列表
+    - `POST /api/games/rooms`：创建房间（支持选择游戏类型）
+    - `POST /api/games/rooms/<room_id>/join`：加入房间
+  - 统一 API 可跨所有游戏模块访问房间数据
+  - 新增 `GAME_CONFIG` 配置管理各游戏参数
+  - **影响文件**：`modules/main/routes.py`
+
+- **游戏大厅页面功能增强**：
+  - 页面标题改为「游戏大厅」，顶部新增统一的「创建房间」按钮
+  - 新增「活跃房间」区域，展示所有游戏的房间列表：
+    - 房间卡片显示：游戏类型标签（颜色区分）、房间名、状态（等待中/游戏中）、创建者、人数、迷你玩家头像
+    - 密码保护房间显示锁图标
+    - 加入按钮：游戏中/已满时自动禁用，密码房间弹出密码验证对话框
+    - 房间列表每 5 秒自动刷新
+  - 创建房间对话框整合游戏选择：
+    - 5 个游戏卡片网格选择器（斗地主/象棋/五子棋/UNO/UNO No Mercy），点击高亮选中
+    - 选中游戏后自动设置人数范围（UNO 类游戏显示人数滑块）
+    - 统一的房间名称、密码输入
+    - 创建成功后自动跳转到对应游戏页面
+  - 游戏选择卡片移至房间列表下方，保留快速跳转功能
+  - **影响文件**：`templates/games.html`、`assets/css/games.css`
+
+- **各游戏独立大厅移除**：
+  - 删除各游戏模板中的 Lobby 视图（房间列表部分）
+  - 删除相关的 Lobby CSS 样式
+  - 移除各游戏路由中的大厅逻辑
+  - 访问 `games/xxx` 现在直接显示游戏房间页面（不再显示独立大厅）
+  - **影响文件**：`templates/chess.html`、`templates/gomoku.html`、`templates/doudizhu.html`、`templates/uno.html`、`templates/uno_nomer.html`、`modules/game_chess/routes.py`、`modules/game_gomoku/routes.py`、`modules/game_doudizhu/routes.py`、`modules/game_uno/routes.py`、`modules/game_uno_nomer/routes.py`
+
+- **用户流程优化**：
+  - 统一进入路径：`/board/games`
+  - 在统一大厅创建/选择房间
+  - 加入房间后跳转到对应游戏页面
+  - 退出房间后可返回统一大厅
+
+#### 八、B站视频硬件编码器检测修复
+
+- **问题背景**：
+  - `check_nvenc_support()` 和 `check_qsv_support()` 仅检查 FFmpeg 是否编译了对应编码器（`ffmpeg -encoders` 输出中是否包含 `h264_nvenc`/`h264_qsv`）
+  - 部分设备 FFmpeg 编译了 NVENC 支持但系统无 NVIDIA GPU 或驱动不兼容，导致日志显示支持但实际编码时失败
+  - 运行时错误识别 `_is_encoder_error()` 仅匹配 `cuda`/`nvenc`/`mfx` 等少量关键字，遗漏多种失败模式
+- **修复方案**：
+  - **两步检测**：先检查编译支持，再实际初始化编码器验证可用性
+    - 使用 `ffmpeg -f lavfi -i nullsrc=s=256x256:d=0.1 -c:v h264_nvenc -f null -` 测试 NVENC
+    - 使用 `ffmpeg -f lavfi -i nullsrc=s=256x256:d=0.1 -c:v h264_qsv -f null -` 测试 QSV
+    - 返回码为 0 才判定为真正可用
+  - **失败原因分析**：根据 stderr 输出区分具体原因
+    - NVENC：`GPU/驱动不可用`、`显存不足`、`初始化失败`
+    - QSV：`MFX/驱动不可用`、`内存不足`、`初始化失败`
+  - **超时保护**：检测超时（10秒）视为不支持，避免阻塞启动
+  - **运行时错误识别增强**：`_is_encoder_error()` 扩展匹配模式
+    - NVENC 新增：`gpu`、`nvidia`、`failed to initialize`、`not supported`、`cannot allocate memory`、`out of memory`、`device creation failed`、`driver`、`no capable devices`、`failed to load nvenc`、`cuda_error`
+    - QSV 新增：`vaapi`、`failed to initialize`、`not supported`、`cannot allocate memory`、`out of memory`、`device creation failed`
+  - **合并错误文本匹配**：将所有错误行合并为完整文本后匹配，避免跨行错误模式遗漏
+- **影响文件**：`modules/bili/download_service.py`
+
+#### 九、mitmproxy 运行方式优化
+
+- **问题背景**：
+  - mitmproxy 使用 `CREATE_NEW_CONSOLE` 标志启动，每次启动都会弹出一个控制台窗口
+  - 窗口不自动激活到前台，用户可能忽略或误关闭
+  - 重启应用时旧进程可能残留，导致端口冲突
+  - `stop_proxy_server()` 仅通过 `_proxy_process.terminate()` 停止，无法可靠终止所有 mitmdump 进程
+- **修复方案**：
+  - **后台静默运行**：将 `CREATE_NEW_CONSOLE` 改为 `CREATE_NO_WINDOW`，mitmproxy 在后台运行，不显示任何窗口
+  - **启动时自动关闭旧进程**：`start_proxy_server()` 启动前先执行 `taskkill /F /IM mitmdump.exe`（Windows）或 `pkill -f mitmdump`（Linux/Mac），确保无残留进程
+  - **停止时可靠终止**：`stop_proxy_server()` 先用 `taskkill`/`pkill` 杀掉所有 mitmdump 进程，再清理子进程对象
+  - **跨平台支持**：Windows 使用 `taskkill`，Linux/Mac 使用 `pkill`
+  - **日志输出**：关闭/停止操作均有 `[WebProxy]` 前缀日志输出
+- **影响文件**：`modules/proxy/proxy_server.py`
+
 ### REL3.0.0
 
 **Markdown 笔记 + AI 对话体验大优化 + 联机小游戏**
@@ -582,7 +775,8 @@
   - 删除本地内置的 mitmproxy 和所有依赖库（tools/mitmproxy/）
   - 改用系统安装的 mitmproxy（`pip install mitmproxy`）
   - 使用 `mitmdump` 命令直接运行
-  - 使用 `CREATE_NEW_CONSOLE` 创建独立的控制台窗口
+  - 使用 `CREATE_NO_WINDOW` 在后台静默运行（无窗口）
+  - 启动时自动关闭旧进程，停止时可靠终止所有 mitmdump 进程
 - **代码变更**：
   - 删除 `_check_local_mitmproxy()` 函数
   - 简化 `_check_mitmproxy()` 只检查系统安装
@@ -599,8 +793,8 @@
 - **优势**：
   | 特性   | 说明                  |
   | ---- | ------------------- |
-  | 进程可见 | 独立窗口显示 mitmproxy 日志 |
-  | 易于调试 | 实时查看所有请求和错误         |
+  | 后台运行 | mitmproxy 静默运行，无窗口干扰 |
+  | 自动清理 | 启动时自动关闭旧进程，避免端口冲突 |
   | 代码简洁 | 减少 44 行代码           |
   | 稳定运行 | 使用正确的 mitmdump 命令   |
 - **使用方法**：
@@ -611,7 +805,7 @@
   # 启动应用
   python app.py
 
-  # mitmproxy 会在独立窗口中运行
+  # mitmproxy 会在后台静默运行
   ```
 
 #### 二、FFmpeg 恢复

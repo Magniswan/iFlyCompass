@@ -1,5 +1,5 @@
-import random
-from datetime import datetime
+﻿import random
+from datetime import datetime, timezone
 from collections import Counter
 from flask_socketio import join_room, leave_room, emit
 from flask import current_app
@@ -80,7 +80,77 @@ def _get_card_type(cards):
                     break
             if is_pair_seq:
                 return {'type': 'pair_sequence', 'main_rank': pair_ranks[-1], 'length': n, 'valid': True}
-    
+
+    # 飞机（至少2个连续的三张，不含2、大小王）
+    # 先检测纯飞机（不带翅膀）
+    if n >= 6 and n % 3 == 0:
+        cnt = Counter(ranks)
+        triple_ranks = sorted([r for r, c in cnt.items() if c == 3])
+        if len(triple_ranks) * 3 == n and triple_ranks[-1] <= 14 and triple_ranks[0] >= 3:
+            is_triple_seq = True
+            for i in range(len(triple_ranks) - 1):
+                if triple_ranks[i+1] - triple_ranks[i] != 1:
+                    is_triple_seq = False
+                    break
+            if is_triple_seq:
+                return {'type': 'airplane', 'main_rank': triple_ranks[-1], 'length': n, 'valid': True}
+
+    # 飞机带单牌（每个三张带一个单牌）
+    # 例如：333444+57 => 6张连续三张 + 2张单牌 = 8张
+    if n >= 8:
+        cnt = Counter(ranks)
+        triple_ranks = sorted([r for r, c in cnt.items() if c == 3])
+        m = len(triple_ranks)
+        if m >= 2 and triple_ranks[-1] <= 14 and triple_ranks[0] >= 3:
+            is_triple_seq = True
+            for i in range(m - 1):
+                if triple_ranks[i+1] - triple_ranks[i] != 1:
+                    is_triple_seq = False
+                    break
+            if is_triple_seq:
+                # 剩余牌必须是单牌（不能是炸弹中的牌，但可以用对子中的一张）
+                remaining = []
+                for r, c in cnt.items():
+                    if r not in triple_ranks:
+                        remaining.extend([r] * c)
+                # 允许用对子/炸弹拆出单牌，只要单牌数量等于飞机组数
+                # 即剩余牌总数 == m
+                if len(remaining) == m:
+                    return {'type': 'airplane_with_singles', 'main_rank': triple_ranks[-1], 'length': n, 'valid': True}
+
+    # 飞机带对子（每个三张带一个对子）
+    # 例如：333444+5577 => 6张连续三张 + 4张对子 = 10张
+    if n >= 10:
+        cnt = Counter(ranks)
+        triple_ranks = sorted([r for r, c in cnt.items() if c == 3])
+        m = len(triple_ranks)
+        if m >= 2 and triple_ranks[-1] <= 14 and triple_ranks[0] >= 3:
+            is_triple_seq = True
+            for i in range(m - 1):
+                if triple_ranks[i+1] - triple_ranks[i] != 1:
+                    is_triple_seq = False
+                    break
+            if is_triple_seq:
+                # 找出所有对子（注意不能是三重中的牌，但四张可以拆出一对）
+                pair_ranks = []
+                remaining_singles = []
+                for r, c in cnt.items():
+                    if r in triple_ranks:
+                        continue
+                    if c >= 2:
+                        pair_ranks.append(r)
+                    if c % 2 == 1:
+                        remaining_singles.append(r)
+                # 对子数量必须正好等于m，且没有多余单牌
+                if len(pair_ranks) == m and len(remaining_singles) == 0:
+                    # 验证pair_ranks中的牌确实提供了足够的对子
+                    used_pairs = 0
+                    for r in pair_ranks:
+                        if cnt[r] >= 2:
+                            used_pairs += 1
+                    if used_pairs == m:
+                        return {'type': 'airplane_with_pairs', 'main_rank': triple_ranks[-1], 'length': n, 'valid': True}
+
     return {'type': 'invalid', 'valid': False}
 
 def _compare_cards(last_cards, new_cards):
@@ -147,7 +217,7 @@ def _init_game_state(room):
     
     room['game_state'] = game_state
     room['status'] = 'playing'
-    room['game_start_time'] = datetime.utcnow()
+    room['game_start_time'] = datetime.now(timezone.utc)
     
     # 重置玩家准备状态和角色
     for p in room['players']:
@@ -178,8 +248,8 @@ def _save_game_record(room, winner_ids, reason=''):
             record = GameRecord(
                 game_type='doudizhu',
                 room_id=room['room_id'],
-                started_at=room.get('game_start_time', datetime.utcnow()),
-                ended_at=datetime.utcnow(),
+                started_at=room.get('game_start_time', datetime.now(timezone.utc)),
+                ended_at=datetime.now(timezone.utc),
                 winner_ids=winner_ids,
                 winner_names=winner_names,
                 loser_ids=loser_ids,
@@ -207,7 +277,7 @@ def _save_game_record(room, winner_ids, reason=''):
                 
                 total = stats.wins + stats.losses + stats.draws
                 stats.win_rate = stats.wins / total if total > 0 else 0.0
-                stats.last_played = datetime.utcnow()
+                stats.last_played = datetime.now(timezone.utc)
             
             db.session.commit()
     except Exception as e:
@@ -218,7 +288,7 @@ def _add_system_message(room, message):
     msg = {
         'username': 'system',
         'message': message,
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'type': 'system'
     }
     room['messages'].append(msg)
@@ -830,7 +900,7 @@ def register_socketio_events(socketio):
                 'username': current_user.username,
                 'nickname': getattr(current_user, 'nickname', current_user.username),
                 'message': message,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'type': 'chat'
             }
             room['messages'].append(msg)

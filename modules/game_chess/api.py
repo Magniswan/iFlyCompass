@@ -1,6 +1,6 @@
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -78,7 +78,7 @@ def create_room():
         return jsonify({'error': '房间名称不能为空'}), 400
     
     room_id = _generate_room_id()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     
     room = {
         'room_id': room_id,

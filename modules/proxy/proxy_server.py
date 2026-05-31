@@ -55,11 +55,22 @@ def start_proxy_server(host='0.0.0.0', port=5003):
     if _proxy_process is not None and _proxy_process.poll() is None:
         return True
 
+    # 先停止可能存在的旧进程
     try:
-        import subprocess
-        subprocess.run(['taskkill', '/F', '/IM', 'mitmdump.exe'], capture_output=True, timeout=5)
-    except Exception:
-        pass
+        print('[WebProxy] 正在关闭现有的 mitmproxy 进程...')
+        if sys.platform == 'win32':
+            result = subprocess.run(['taskkill', '/F', '/IM', 'mitmdump.exe'], capture_output=True, timeout=5, text=True)
+            if result.returncode == 0:
+                print('[WebProxy] 已关闭现有 mitmproxy 进程')
+        else:
+            try:
+                subprocess.run(['pkill', '-f', 'mitmdump'], capture_output=True, timeout=5)
+                print('[WebProxy] 已关闭现有 mitmproxy 进程')
+            except Exception:
+                pass
+        time.sleep(1)
+    except Exception as e:
+        print(f'[WebProxy] 关闭现有进程时出错: {e}')
 
     try:
         addon_dir = os.path.dirname(os.path.abspath(__file__))
@@ -102,16 +113,15 @@ def start_proxy_server(host='0.0.0.0', port=5003):
             f.write(f"Working Dir: {os.getcwd()}\n")
             f.write(f"{'='*60}\n")
         
-        # 创建新的控制台窗口运行 mitmproxy（不隐藏窗口）
+        # 在后台运行 mitmproxy（不显示窗口）
         if sys.platform == 'win32':
-            creation_flags = subprocess.CREATE_NEW_CONSOLE
+            creation_flags = subprocess.CREATE_NO_WINDOW
+            _proxy_process = subprocess.Popen(
+                cmd,
+                creationflags=creation_flags,
+            )
         else:
-            creation_flags = 0
-        
-        _proxy_process = subprocess.Popen(
-            cmd,
-            creationflags=creation_flags,
-        )
+            _proxy_process = subprocess.Popen(cmd)
 
         time.sleep(2)
 
@@ -126,7 +136,7 @@ def start_proxy_server(host='0.0.0.0', port=5003):
             host=_proxy_host,
             port=str(port)
         ))
-        print('[WebProxy] mitmproxy 日志窗口已打开，请勿关闭')
+        print('[WebProxy] mitmproxy 在后台运行')
         print('[WebProxy] 日志文件: ' + log_file)
         return True
     except Exception as e:
@@ -139,6 +149,20 @@ def start_proxy_server(host='0.0.0.0', port=5003):
 
 def stop_proxy_server():
     global _proxy_process
+    # 直接杀掉所有 mitmdump.exe 进程，这是最可靠的方法
+    try:
+        print('[WebProxy] 正在停止 mitmproxy...')
+        if sys.platform == 'win32':
+            subprocess.run(['taskkill', '/F', '/IM', 'mitmdump.exe'], capture_output=True, timeout=5)
+            print('[WebProxy] mitmproxy 已停止')
+        else:
+            try:
+                subprocess.run(['pkill', '-f', 'mitmdump'], capture_output=True, timeout=5)
+                print('[WebProxy] mitmproxy 已停止')
+            except Exception:
+                pass
+    except Exception:
+        pass
     if _proxy_process is not None:
         try:
             if sys.platform == 'win32':

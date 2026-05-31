@@ -983,6 +983,8 @@
                     
                     if (key === 'dashboard') {
                         window.location.href = '/board';
+                    } else if (key === 'games') {
+                        window.location.href = '/board/games';
                     } else if (key === 'users' && this.isAdmin) {
                         window.location.href = '/board/users';
                     } else if (key === 'passkeys' && this.isSuperAdmin) {

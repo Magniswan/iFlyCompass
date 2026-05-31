@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import rooms
 
-api_bp = Blueprint('game_gomoku_api', __name__, url_prefix='/api/gomoku')
+api_bp = Blueprint('game_uno_api', __name__, url_prefix='/api/uno')
 
 def _generate_room_id():
     """生成8位房间ID"""
@@ -34,7 +34,6 @@ def _get_room_summary(room):
                 'nickname': p['nickname'],
                 'seat': p['seat'],
                 'ready': p['ready'],
-                'role': p['role'],
                 'is_online': p['is_online']
             } if p else None
             for p in room['players']
@@ -48,11 +47,13 @@ def _get_room_detail(room):
     game_state = room.get('game_state', {})
     if room['status'] == 'playing' and game_state:
         detail['game_state'] = {
-            'board': game_state.get('board', []),
             'current_turn': game_state.get('current_turn'),
-            'black_player': game_state.get('black_player'),
-            'white_player': game_state.get('white_player'),
-            'move_history': game_state.get('move_history', [])
+            'direction': game_state.get('direction', 1),
+            'top_card': game_state.get('top_card'),
+            'top_color': game_state.get('top_color'),
+            'deck_count': len(game_state.get('deck', [])),
+            'phase': game_state.get('phase'),
+            'hands_count': {str(seat): len(hand) for seat, hand in game_state.get('hands', {}).items()},
         }
     else:
         detail['game_state'] = game_state
@@ -70,43 +71,45 @@ def list_rooms():
 def create_room():
     """创建房间"""
     data = request.json or {}
-    name = data.get('name', '五子棋房间')
+    name = data.get('name', 'UNO房间')
     password = data.get('password')
-    
+    max_players = data.get('max_players', 8)
+    if not isinstance(max_players, int) or max_players < 3 or max_players > 8:
+        max_players = 8
+
     if not name or not isinstance(name, str) or len(name.strip()) == 0:
         return jsonify({'error': '房间名称不能为空'}), 400
-    
+
     room_id = _generate_room_id()
     now = datetime.now(timezone.utc)
-    
+
     room = {
         'room_id': room_id,
         'name': name.strip(),
         'password': generate_password_hash(password) if password else None,
-        'game_type': 'gomoku',
+        'game_type': 'uno',
         'status': 'waiting',
         'creator_id': current_user.id,
         'creator_name': current_user.username,
         'created_at': now,
-        'max_players': 2,
-        'players': [None, None],
+        'max_players': max_players,
+        'players': [None] * max_players,
         'messages': [],
         'game_state': {}
     }
-    
-    # 创建者加入座位 0 (黑方)
+
+    # 创建者加入座位 0
     room['players'][0] = {
         'user_id': current_user.id,
         'username': current_user.username,
         'nickname': getattr(current_user, 'nickname', current_user.username),
         'seat': 0,
         'ready': False,
-        'role': 'unknown',
         'is_online': False
     }
-    
+
     rooms[room_id] = room
-    
+
     return jsonify(_get_room_summary(room)), 201
 
 @api_bp.route('/rooms/<room_id>/join', methods=['POST'])
@@ -116,45 +119,44 @@ def join_room(room_id):
     room = rooms.get(room_id)
     if not room:
         return jsonify({'error': '房间不存在'}), 404
-    
+
     if room['status'] == 'ended':
         return jsonify({'error': '房间已结束'}), 400
-    
+
     if room['status'] == 'playing':
         return jsonify({'error': '游戏已开始'}), 400
-    
+
     # 验证密码
     if room.get('password'):
         data = request.json or {}
         password = data.get('password', '')
         if not check_password_hash(room['password'], password):
             return jsonify({'error': '房间密码错误'}), 401
-    
+
     # 检查是否已经在房间中
     for player in room['players']:
         if player and player['user_id'] == current_user.id:
             return jsonify(_get_room_summary(room))
-    
+
     # 寻找空座位
     assigned_seat = None
     for i, player in enumerate(room['players']):
         if player is None:
             assigned_seat = i
             break
-    
+
     if assigned_seat is None:
         return jsonify({'error': '房间已满'}), 400
-    
+
     room['players'][assigned_seat] = {
         'user_id': current_user.id,
         'username': current_user.username,
         'nickname': getattr(current_user, 'nickname', current_user.username),
         'seat': assigned_seat,
         'ready': False,
-        'role': 'unknown',
         'is_online': False
     }
-    
+
     return jsonify(_get_room_summary(room))
 
 @api_bp.route('/rooms/<room_id>', methods=['GET'])
@@ -164,10 +166,10 @@ def get_room(room_id):
     room = rooms.get(room_id)
     if not room:
         return jsonify({'error': '房间不存在'}), 404
-    
+
     # 检查请求者是否在房间中
     is_in_room = any(p and p['user_id'] == current_user.id for p in room['players'])
     if not is_in_room:
         return jsonify({'error': '您不在该房间中'}), 403
-    
+
     return jsonify(_get_room_detail(room))
