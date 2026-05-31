@@ -285,7 +285,7 @@
     </div>
     <div id="app">
         <el-container class="console-container">
-            <el-aside width="64px" class="console-sidebar" :width="isCollapse ? '64px' : '200px'">
+            <el-aside class="console-sidebar" :width="isCollapse ? '64px' : '200px'">
                 <div class="sidebar-header" @click="toggleCollapse">
                     <img src="/assets/images/logo-trans-white.png" alt="Logo" class="sidebar-logo">
                     <span v-show="!isCollapse" class="sidebar-brand">iFlyCompass</span>
@@ -426,7 +426,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="status-info">
-                                    <p>当前版本：REL3.0.0</p>
+                                    <p>当前版本：REL3.1.0</p>
                                     <p>上次登录：刚刚</p>
                                 </div>
                             </div>
@@ -541,6 +541,9 @@
                 <template v-else-if="currentNotification && currentNotification.priority === 'important'">
                     <el-button type="primary" @click="closeImportantNotification">我知道了</el-button>
                 </template>
+                <template v-else-if="currentNotification && currentNotification.priority === 'minor'">
+                    <el-button type="primary" @click="confirmNotification">确认</el-button>
+                </template>
             </span>
         </el-dialog>
     </div>
@@ -587,11 +590,11 @@
                 return {
                     isCollapse: {% if sidebar_expanded %}false{% else %}true{% endif %},
                     activeMenu: 'dashboard',
-                    homeDisplay: '{{ home_display }}',
-                    displayName: '{% if home_display == "username" %}{{ current_user.username }}{% else %}{{ current_user.display_name }}{% endif %}',
-                    username: '{{ current_user.username }}',
-                    nickname: '{{ current_user.nickname or "" }}',
-                    passkeyUsed: {% if current_user.passkey_used %}'{{ current_user.passkey_used }}'{% else %}null{% endif %},
+                    homeDisplay: {{ home_display | tojson }},
+                    displayName: {% if home_display == "username" %}{{ current_user.username | tojson }}{% else %}{{ current_user.display_name | tojson }}{% endif %},
+                    username: {{ current_user.username | tojson }},
+                    nickname: {{ (current_user.nickname or "") | tojson }},
+                    passkeyUsed: {% if current_user.passkey_used %}{{ current_user.passkey_used | tojson }}{% else %}null{% endif %},
                     isAdmin: {% if current_user.is_admin or current_user.is_super_admin %}true{% else %}false{% endif %},
                     isSuperAdmin: {% if current_user.is_super_admin %}true{% else %}false{% endif %},
                     userMenuVisible: false,
@@ -735,10 +738,6 @@
                     
                     if (this.profileSettings.allowNickname) {
                         dataToSend.nickname = this.profileForm.nickname;
-                    }
-                    
-                    if (this.profileForm.password) {
-                        dataToSend.password = this.profileForm.password;
                     }
                     
                     if (this.profileSettings.allowSelfPasswordReset) {
