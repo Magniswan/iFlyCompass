@@ -21,6 +21,7 @@ def api_users():
             'display_name': user.display_name,
             'is_super_admin': user.is_super_admin,
             'is_admin': user.is_admin,
+            'is_active': user.is_active,
             'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S')
         } for user in users])
     
@@ -80,6 +81,10 @@ def api_users():
             user.invalidate_all_sessions()
         if 'is_admin' in data and current_user.is_super_admin and not user.is_super_admin:
             user.is_admin = data['is_admin']
+        if 'is_active' in data and current_user.is_super_admin and not user.is_super_admin:
+            user.is_active = data['is_active']
+            if not user.is_active:
+                user.invalidate_all_sessions()
         db.session.commit()
         return jsonify({'id': user.id, 'username': user.username})
     

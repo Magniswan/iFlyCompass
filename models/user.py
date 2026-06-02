@@ -10,6 +10,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     is_super_admin = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
     passkey_used = db.Column(db.String(6), nullable=True)
     security_question = db.Column(db.String(255), nullable=True)
     security_answer_hash = db.Column(db.String(128), nullable=True)

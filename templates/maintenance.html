@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% include "_pwa_head.html" %}
+    <title>服务器维护中 - iFlyCompass</title>
+    <link rel="stylesheet" href="/assets/css/loading.css">
+    <link rel="stylesheet" href="/assets/css/material-icons.css">
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <style>
+        .maintenance-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+            padding: 20px;
+        }
+        .maintenance-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 48px 40px;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .maintenance-icon {
+            font-size: 80px;
+            color: #e6a23c;
+            margin-bottom: 24px;
+        }
+        .maintenance-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #303133;
+            margin-bottom: 16px;
+        }
+        .maintenance-desc {
+            font-size: 16px;
+            color: #606266;
+            line-height: 1.8;
+            margin-bottom: 32px;
+        }
+        .maintenance-footer {
+            font-size: 14px;
+            color: #909399;
+        }
+        .logout-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 20px;
+            padding: 10px 24px;
+            background: #409eff;
+            color: #fff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .logout-btn:hover {
+            background: #66b1ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载中...</div>
+    </div>
+    <div class="maintenance-container">
+        <div class="maintenance-card">
+            <div class="maintenance-icon">
+                <span class="material-icons" style="font-size: 80px;">construction</span>
+            </div>
+            <h1 class="maintenance-title">服务器正在维护中</h1>
+            <p class="maintenance-footer" style="margin-top: 24px;">
+                iFlyCompass
+            </p>
+        </div>
+    </div>
+    <script src="/assets/js/offline-handler.js"></script>
+    <script src="/assets/js/loading.js"></script>
+{% include "_pwa_register.html" %}
+</body>
+</html>

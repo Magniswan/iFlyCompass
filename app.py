@@ -87,6 +87,12 @@ def run_migrations(app):
             cursor.execute("ALTER TABLE user ADD COLUMN letter_spacing REAL DEFAULT 0.0")
             conn.commit()
             print("数据库迁移完成！")
+
+        if 'is_active' not in columns:
+            print("正在迁移数据库：添加 is_active 字段...")
+            cursor.execute("ALTER TABLE user ADD COLUMN is_active BOOLEAN DEFAULT 1")
+            conn.commit()
+            print("数据库迁移完成！")
         
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='announcement'")
         if not cursor.fetchone():

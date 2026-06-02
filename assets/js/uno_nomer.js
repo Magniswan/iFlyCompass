@@ -24,7 +24,8 @@
             showGameOver: false, gameWinners: [], gameRankings: [],
             displayName: currentDisplayName, username: currentUsername,
             nickname: currentNickname, isAdmin: isAdminUser,
-            userMenuVisible: false, unoCalled: false
+            userMenuVisible: false, unoCalled: false,
+            handCounts: {}
         },
         computed: {
             otherPlayers: function() {
@@ -73,13 +74,12 @@
                 return p && p.eliminated;
             },
             myHandSize: function() {
-                if (!this.gameState.hands || !this.gameState.hands[String(this.mySeat)]) return 0;
-                return this.gameState.hands[String(this.mySeat)].length;
+                return this.myCards.length;
             }
         },
         mounted: function() {
             this.loadRooms();
-            this.bindSocketEvents();
+            this.bindAllEvents();
             document.addEventListener('click', this.closeUserMenu);
         },
         beforeDestroy: function() {
@@ -108,7 +108,7 @@
                 else if (key === 'settings') window.location.href = '/board/settings';
             },
 
-            // Room Management
+            // ===== Room Management =====
             loadRooms: function() {
                 var s = this;
                 fetch('/api/uno-nomer/rooms')
@@ -163,16 +163,15 @@
                 this.selectedCard = null; this.showColorPicker = false; this.pendingCard = null;
                 this.showTargetPicker = false; this.pendingCard7 = null; this.showColorRoulette = false;
                 this.messages = []; this.showGameOver = false; this.gameWinners = []; this.gameRankings = [];
-                this.chatOpen = false; this.unoCalled = false;
+                this.chatOpen = false; this.unoCalled = false; this.handCounts = {};
             },
             resetGameState: function() {
                 this.gameState = {}; this.myCards = []; this.selectedCard = null;
                 this.showGameOver = false; this.gameWinners = []; this.gameRankings = [];
                 this.showColorPicker = false; this.pendingCard = null;
                 this.showTargetPicker = false; this.pendingCard7 = null; this.showColorRoulette = false;
-                this.unoCalled = false;
+                this.unoCalled = false; this.handCounts = {};
             },
-
             loadRoomDetail: function() {
                 if (!this.roomId) return;
                 var s = this;
@@ -189,6 +188,7 @@
                     }).catch(function() {});
             },
 
+            // ===== Game Actions =====
             toggleReady: function() {
                 if (!this.roomId || this.mySeat === -1) return;
                 socket.emit('ready', { room_id: this.roomId, ready: !this.isReady });
@@ -197,8 +197,6 @@
                 if (!this.roomId || !this.isCreator) return;
                 socket.emit('start_game', { room_id: this.roomId });
             },
-
-            // Card interaction
             selectCard: function(card) {
                 if (!this.isMyTurn || this.gameState.phase !== 'playing' || this.isEliminated) return;
                 if (!this.canPlayCard(card)) return;
@@ -219,17 +217,15 @@
                 var tc = this.gameState.top_color, tv = this.gameState.top_card.substring(1);
                 var cc = card[0];
                 if (cc === tc) return true;
-                if (cv === tv && this.gameState.top_card[0] !== 'W' && this.gameState.top_card !== 'SE' && this.gameState.top_card !== 'CR') return true;
+                if (cv === tv && this.gameState.top_card[0] !== 'W' && this.gameState.top_card !== 'SE' && this.gameState.top_card !== 'CR' && this.gameState.top_card.substring(0,2) !== 'N+' && this.gameState.top_card !== 'NR+4' && this.gameState.top_card !== 'W+4') return true;
                 return false;
             },
             playSelectedCard: function() {
                 if (!this.selectedCard || !this.isMyTurn) return;
                 var card = this.selectedCard, cv = card.substring(1);
-                // 数字7需要选目标
                 if (cv === '7' && this.activeOtherPlayers.length > 0) {
                     this.pendingCard7 = card; this.showTargetPicker = true; return;
                 }
-                // 万能牌需要选颜色
                 if (card === 'W' || card === 'W+4' || card === 'SE' || card === 'N+4' || card === 'NR+4' || card === 'CR' || card === 'N+6' || card === 'N+10') {
                     this.pendingCard = card; this.showColorPicker = true; return;
                 }
@@ -246,14 +242,10 @@
                 socket.emit('play_card', { room_id: this.roomId, card: this.pendingCard7, target_seat: targetSeat });
                 this.pendingCard7 = null; this.showTargetPicker = false; this.selectedCard = null;
             },
-
-            // Color Roulette
             pickColorRoulette: function(color) {
                 socket.emit('color_roulette_pick', { room_id: this.roomId, color: color });
                 this.showColorRoulette = false;
             },
-
-            // UNO
             callUno: function() {
                 if (!this.roomId || this.mySeat === -1) return;
                 socket.emit('call_uno', { room_id: this.roomId });
@@ -264,7 +256,6 @@
                 if (!this.roomId) return;
                 socket.emit('catch_uno', { room_id: this.roomId, target_seat: seat });
             },
-
             drawCard: function() {
                 if (!this.roomId || !this.isMyTurn || this.isEliminated) return;
                 socket.emit('draw_card', { room_id: this.roomId });
@@ -276,10 +267,12 @@
                 socket.emit('send_message', { room_id: this.roomId, message: m });
             },
 
+            // ===== Display Helpers =====
             isCurrentTurn: function(p) { return p && this.gameState.current_turn === p.seat; },
             getHandCount: function(seat) {
-                if (this.gameState.hands && this.gameState.hands[String(seat)] !== undefined)
-                    return this.gameState.hands[String(seat)].length;
+                if (this.handCounts[String(seat)] !== undefined) {
+                    return this.handCounts[String(seat)];
+                }
                 return 0;
             },
             getPlayerName: function(seat) {
@@ -328,15 +321,24 @@
                 return card;
             },
             cardColorIcon: function(card) {
-                if (card[0] === 'W' || card === 'SE' || card === 'N+4' || card === 'NR+4' || card === 'CR' || card === 'N+6' || card === 'N+10') return '★';
-                return '●';
+                if (card[0] === 'W' || card === 'SE' || card === 'N+4' || card === 'NR+4' || card === 'CR' || card === 'N+6' || card === 'N+10') return '\u2605';
+                return '\u25cf';
             },
             scrollToBottom: function() {
                 var c = this.$refs.chatMessages;
                 if (c) this.$nextTick(function() { c.scrollTop = c.scrollHeight; });
             },
 
-            bindSocketEvents: function() {
+            // ===== Socket Events (organized by group) =====
+            bindAllEvents: function() {
+                this._bindRoomEvents();
+                this._bindGameFlowEvents();
+                this._bindCardEvents();
+                this._bindSpecialEffects();
+                this._bindChatEvents();
+            },
+
+            _bindRoomEvents: function() {
                 var s = this;
                 socket.on('room_created', function(d) { s.inRoom = true; s.mySeat = d.seat || 0; s.loadRoomDetail(); });
                 socket.on('room_joined', function(d) { s.inRoom = true; s.mySeat = d.seat; if (d.room) s.room = d.room; s.loadRoomDetail(); });
@@ -353,7 +355,17 @@
                         var p = s.room.players[d.seat]; if (p) p.ready = d.ready;
                     }
                 });
+                socket.on('room_disbanded', function(d) {
+                    s.$message.warning('房间已解散');
+                    s.resetRoomState(); s.inRoom = false; s.roomId = ''; s.loadRooms();
+                });
+                socket.on('error', function(d) {
+                    s.$message.error(d.message || '发生错误');
+                });
+            },
 
+            _bindGameFlowEvents: function() {
+                var s = this;
                 socket.on('game_started', function(d) {
                     s.room.status = 'playing';
                     s.gameState = {
@@ -362,6 +374,7 @@
                         direction: d.direction, draw_stack: 0,
                         rankings: [], hands: d.hands || {}
                     };
+                    if (d.hand_counts) s.handCounts = d.hand_counts;
                     if (d.hands) {
                         s.myCards = d.hands[String(s.mySeat)] || [];
                         s.sortCards();
@@ -369,25 +382,29 @@
                     s.selectedCard = null; s.unoCalled = false;
                     s.$message.success('UNO No Mercy 开始！');
                 });
-
                 socket.on('turn_changed', function(d) {
                     s.gameState.current_turn = d.seat;
                     if (d.draw_stack !== undefined) s.gameState.draw_stack = d.draw_stack;
                     s.selectedCard = null; s.unoCalled = false;
                 });
+                socket.on('game_ended', function(d) {
+                    s.room.status = 'ended'; s.gameState.phase = 'ended';
+                    s.gameRankings = d.rankings || []; s.showGameOver = true;
+                });
+            },
 
+            _bindCardEvents: function() {
+                var s = this;
                 socket.on('card_played', function(d) {
                     s.$set(s.gameState, 'top_card', d.top_card);
                     s.$set(s.gameState, 'top_color', d.top_color);
                     if (d.draw_stack !== undefined) s.gameState.draw_stack = d.draw_stack;
-                    if (d.remaining !== undefined && d.seat != null)
-                        s.$set(s.gameState.hands, String(d.seat), new Array(d.remaining).fill('?'));
+                    if (d.hand_counts) s.handCounts = d.hand_counts;
                     if (d.seat === s.mySeat) {
                         var idx = s.myCards.indexOf(d.card);
                         if (idx !== -1) s.myCards.splice(idx, 1);
                         s.selectedCard = null;
                     }
-                    // All Color effect: discard all cards of that color for everyone
                     if (d.effects && d.effects.length > 0) {
                         d.effects.forEach(function(eff) {
                             if (eff.startsWith('all_discard_')) {
@@ -415,10 +432,7 @@
                         }
                         s.sortCards();
                     }
-                    if (d.seat != null) {
-                        var prev = s.getHandCount(d.seat);
-                        s.$set(s.gameState.hands, String(d.seat), new Array(prev + (d.count || 0)).fill('?'));
-                    }
+                    if (d.hand_counts) s.handCounts = d.hand_counts;
                     var p = s.room.players[d.seat], n = p ? (p.nickname || p.username) : '玩家';
                     if (d.reason === 'stack_penalty') s.$message.error(n + ' 接受了惩罚，抽了 ' + d.count + ' 张牌！');
                     else if (d.reason === 'color_roulette') s.$message.warning(n + ' 被罚抽颜色，抽了 ' + d.count + ' 张');
@@ -438,7 +452,10 @@
                     if (d.reason === 'empty_hand') s.$message.success(n + ' 出完手牌，排名第' + (d.rank || '?') + '！');
                     else s.$message.error(n + ' 手牌≥25张被淘汰！排名第' + (d.rank || '?'));
                 });
+            },
 
+            _bindSpecialEffects: function() {
+                var s = this;
                 socket.on('hands_swapped', function(d) {
                     if (d.hands) {
                         if (d.hands[String(s.mySeat)]) {
@@ -463,12 +480,10 @@
 
                 socket.on('hands_updated', function(d) {
                     if (d.hands_count) {
-                        for (var seat in d.hands_count) {
-                            s.$set(s.gameState.hands, seat, new Array(d.hands_count[seat]).fill('?'));
-                        }
+                        s.handCounts = d.hands_count;
                         if (d.hands_count[String(s.mySeat)] !== undefined) {
                             var expected = d.hands_count[String(s.mySeat)];
-                            while (s.myCards.length > expected) s.myCards.pop();
+                            s.myCards = s.myCards.slice(0, expected);
                             s.sortCards();
                         }
                     }
@@ -482,7 +497,7 @@
                 });
 
                 socket.on('uno_called', function(d) {
-                    s.$message.info(d.nickname || d.username + ' 喊了 UNO！');
+                    s.$message.info((d.nickname || d.username) + ' 喊了 UNO！');
                 });
 
                 socket.on('uno_penalty', function(d) {
@@ -491,25 +506,14 @@
                         s.unoCalled = false;
                     }
                 });
+            },
 
-                socket.on('game_ended', function(d) {
-                    s.room.status = 'ended'; s.gameState.phase = 'ended';
-                    s.gameRankings = d.rankings || []; s.showGameOver = true;
-                });
-
-                socket.on('room_disbanded', function(d) {
-                    s.$message.warning('房间已解散');
-                    s.resetRoomState(); s.inRoom = false; s.roomId = ''; s.loadRooms();
-                });
-
+            _bindChatEvents: function() {
+                var s = this;
                 socket.on('new_message', function(d) {
                     s.messages.push(d);
                     if (s.messages.length > 200) s.messages = s.messages.slice(-200);
                     s.scrollToBottom();
-                });
-
-                socket.on('error', function(d) {
-                    s.$message.error(d.message || '发生错误');
                 });
             }
         }

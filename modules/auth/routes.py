@@ -23,6 +23,9 @@ def login():
             session['_session_version'] = user.session_version or 0
             user_sessions[username] = request.cookies.get('session')
 
+            if not user.is_active:
+                return redirect(url_for('auth.maintenance'))
+
             next_page = request.form.get('next', '')
             if next_page and next_page.startswith('/') and not next_page.startswith('//'):
                 return redirect(next_page)
@@ -143,3 +146,9 @@ def forgot_password():
         return redirect(url_for('auth.login'))
     
     return render_template('forgot_password.html')
+
+@auth_bp.route('/maintenance')
+def maintenance():
+    if current_user.is_authenticated and current_user.is_active:
+        return redirect(url_for('main.board'))
+    return render_template('maintenance.html')

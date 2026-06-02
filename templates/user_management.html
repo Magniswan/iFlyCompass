@@ -256,6 +256,17 @@
                                     ></el-switch>
                                 </template>
                             </el-table-column>
+                            <el-table-column prop="is_active" label="账号状态">
+                                <template slot-scope="scope">
+                                    <el-switch
+                                        v-model="scope.row.is_active"
+                                        :disabled="scope.row.is_super_admin || !isSuperAdmin"
+                                        active-text="启用"
+                                        inactive-text="关闭"
+                                        @change="toggleActive(scope.row)"
+                                    ></el-switch>
+                                </template>
+                            </el-table-column>
                             <el-table-column prop="created_at" label="创建时间"></el-table-column>
                             <el-table-column label="操作" width="150">
                                 <template slot-scope="scope">
@@ -562,6 +573,35 @@
                         console.error('更新失败:', error);
                         this.$message.error('更新失败');
                         user.is_admin = !user.is_admin;
+                    });
+                },
+                toggleActive(user) {
+                    console.log('切换用户账号状态:', user.username, user.is_active);
+                    fetch('/api/users', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            id: user.id,
+                            is_active: user.is_active
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            console.error('更新失败:', data.error);
+                            this.$message.error(data.error);
+                            user.is_active = !user.is_active;
+                        } else {
+                            console.log('更新成功:', data);
+                            this.$message.success(user.is_active ? '账号已启用' : '账号已关闭');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('更新失败:', error);
+                        this.$message.error('更新失败');
+                        user.is_active = !user.is_active;
                     });
                 },
                 saveUser() {

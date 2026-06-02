@@ -2,6 +2,76 @@
 
 ## 版本更新
 
+### REL3.1.1
+
+**UNO No Mercy 结构化重构 — 卡牌效果系统 + 前后端优化**
+
+#### 一、后端：卡牌效果注册表体系
+
+**问题**：`on_play_card` 函数 230 行，包含巨型 if/elif 链处理所有卡牌效果，逻辑与验证/回合/广播紧密耦合，30% 代码为重复的淘汰和游戏结束检查。
+
+**方案**：使用 handler 注册表模式，每种卡牌效果独立为纯函数。
+
+- **新增 `modules/game_uno_nomer/effects.py`**：
+  - 14 种卡牌效果各自注册为独立 handler 函数（skip / reverse / draw / all-discard / hand-swap / hand-pass / skip-all / reverse-draw / color-roulette / wild）
+  - `CARD_EFFECTS` 字典：键为卡牌值字符串，值为 handler 函数引用
+  - `apply_card_effect(gs, card, seat, room, **kwargs)` — 查表执行效果
+  - 抽取通用辅助函数：`_card_color`, `_card_value`, `_get_draw_value`, `is_playable`, `_active_seats`, `_get_next_turn`, `recycle_discard`, `draw_from_deck`
+
+- **新增 `modules/game_uno_nomer/game.py`**：
+  - 统一抽取重复逻辑：
+    - `check_elimination(room, seat)` — 手牌 ≥25 淘汰检查
+    - `check_empty_hand(room, seat)` — 空手排名 + 广播
+    - `check_game_over(room)` — 活跃人数 ≤1 判定结束
+    - `end_game(room, reason)` — 结束游戏 + 保存战绩
+    - `advance_turn_after_play(room, seat, effects)` — 统一回合推进（含 skip/repeat/淘汰后处理）
+    - `init_game_state(room)` — 牌组初始化
+  - **Bug 修复**：`_save_game_record` 中 `loser_names` 之前错误使用 `winner_seats` 迭代填充，修复为遍历所有玩家筛选 `loser_ids` 生成
+
+- **重构 `modules/game_uno_nomer/websocket.py`**（998 行 → 609 行）：
+  - 移除所有已迁移的函数定义，改为从 `effects.py` 和 `game.py` 导入
+  - `on_play_card` 从 230 行缩减至 84 行：
+    - 验证阶段（不变）
+    - 打出牌 → 处理颜色 → **一行 `apply_card_effect()`** 替代原 if/elif 链
+    - CR 罚抽颜色交互 → 广播特殊效果 → 检查出完 → 推进回合 → 广播
+  - 新增模块级广播辅助函数：`_broadcast_card_played`, `_broadcast_turn_change`, `_broadcast_effects`
+
+- **架构优势**：
+  | 特性 | 说明 |
+  |------|------|
+  | 添加新卡牌效果 | 写一个 handler + 注册一行，无需改动主流程 |
+  | 可测试性 | 每个 handler 是纯函数，可独立单测 |
+  | 可读性 | `on_play_card` 从 230 行减至 84 行，主体流程一目了然 |
+  | 消除重复 | 淘汰/结束/回合推进各只定义一次 |
+
+#### 二、前端：事件分组 + 手牌追踪修复
+
+- **Socket 事件按功能分组**（`assets/js/uno_nomer.js`）：
+  - `_bindRoomEvents()` — 房间生命周期事件（create/join/leave/ready/disband/error）
+  - `_bindGameFlowEvents()` — 游戏流程事件（game_started/turn_changed/game_ended）
+  - `_bindCardEvents()` — 出牌抽牌事件（card_played/player_drew/player_eliminated）
+  - `_bindSpecialEffects()` — 特殊效果事件（hands_swapped/hands_passed/hands_updated/color_roulette/uno_called/uno_penalty）
+  - `_bindChatEvents()` — 聊天消息事件
+  - 统一入口 `bindAllEvents()` 顺序调用五个分组
+
+- **手牌数量追踪修复**：
+  - **问题**：前端使用 `new Array(n).fill('?')` 伪造手牌数组来显示其他玩家手牌数，不准确且浪费内存
+  - **修复**：
+    - 新增 `handCounts` 响应式数据对象，存储各座位精确手牌数
+    - 服务端 `game_started` 和 `card_played` 新增 `hand_counts` 字段
+    - `getHandCount(seat)` 直接读取 `handCounts[seat]` 而非数组长度
+    - `card_played` 和 `player_drew` 事件接收 `hand_counts` 后更新本地缓存
+
+#### 三、代码变更清单
+
+| 文件 | 动作 | 说明 |
+|------|------|------|
+| `modules/game_uno_nomer/effects.py` | 新建 | 14 种卡牌效果注册表 |
+| `modules/game_uno_nomer/game.py` | 新建 | 统一游戏操作 + 修复 loser_names bug |
+| `modules/game_uno_nomer/websocket.py` | 重写 | 998→609 行，on_play_card 230→84 行 |
+| `modules/game_uno_nomer/__init__.py` | 修改 | 新增 exports |
+| `assets/js/uno_nomer.js` | 重构 | 事件分组 + handCounts 替代伪数组 |
+
 ### REL3.1.0
 
 **服务器时间处理修复 + UNO 联机卡牌游戏 + mitmproxy 运行方式优化 + Bug 修复**
