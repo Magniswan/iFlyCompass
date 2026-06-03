@@ -2,7 +2,7 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 from extensions import db
 from models.user import User, Passkey
-from utils import generate_passkey, get_utc_plus_8_time, get_settings, validate_username, validate_nickname
+from utils import generate_passkey, get_utc_plus_8_time, get_settings, validate_username, validate_nickname, validate_password_strength, is_weak_password
 from datetime import timedelta
 from . import auth_bp
 
