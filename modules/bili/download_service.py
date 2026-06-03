@@ -385,10 +385,11 @@ def format_size(size):
 
 
 class DownloadTask:
-    def __init__(self, bvid, title, cid):
+    def __init__(self, bvid, title, cid, reencode=True):
         self.bvid = bvid
         self.title = title
         self.cid = cid
+        self.reencode = reencode
         self.status = 'pending'
         self.progress = 0
         self.downloaded = 0
@@ -415,7 +416,8 @@ class DownloadTask:
             'speed_display': format_size(self.speed) + '/s' if self.speed > 0 else '0 B/s',
             'error': self.error,
             'converting_progress': self.converting_progress,
-            'queue_position': self.queue_position
+            'queue_position': self.queue_position,
+            'reencode': self.reencode
         }
 
 
@@ -595,6 +597,36 @@ def convert_to_h264(input_path, output_path, task):
         return False
 
 
+def merge_video_audio(video_path, audio_path, output_path, task):
+    """仅合并音视频，不做转码（copy模式）"""
+    if not FFMPEG_PATH:
+        print('[Bili] FFmpeg未找到，跳过合并')
+        return False
+
+    video_exists = os.path.exists(video_path)
+    audio_exists = os.path.exists(audio_path)
+    if not video_exists:
+        print(f'[Bili] 视频文件不存在: {video_path}')
+        return False
+
+    cmd = [FFMPEG_PATH, '-y', '-i', video_path]
+    if audio_exists:
+        cmd.extend(['-i', audio_path])
+    cmd.extend(['-c', 'copy', '-movflags', '+faststart', output_path])
+
+    print(f'[Bili] 开始仅合并音视频(不转码): {output_path}')
+    try:
+        success, _ = _run_ffmpeg_process(cmd, task, '合并')
+        if success:
+            print(f'[Bili] 音视频合并完成: {output_path}')
+        return success
+    except Exception as e:
+        print(f'[Bili] 合并异常: {e}')
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def merge_and_convert_video_audio(video_path, audio_path, output_path, task):
     if not FFMPEG_PATH:
         print('[Bili] FFmpeg未找到，跳过合并转换')
@@ -684,30 +716,38 @@ def download_video_task(task):
                 if merged_size < 1024:
                     raise Exception(f'下载的文件太小({merged_size}B)，可能是无效文件')
 
-                task.status = 'converting'
-                task.converting_progress = 0
-                task.progress = 100
-                print(f'[Bili] 状态已更新为: converting, 下载进度: 100%')
-                print(f'[Bili] 开始转换为H264格式')
-                success = convert_to_h264(temp_merged_path, video_path, task)
+                if task.reencode:
+                    task.status = 'converting'
+                    task.converting_progress = 0
+                    task.progress = 100
+                    print(f'[Bili] 状态已更新为: converting, 下载进度: 100%')
+                    print(f'[Bili] 开始转换为H264格式')
+                    success = convert_to_h264(temp_merged_path, video_path, task)
 
-                if success:
-                    try:
-                        os.remove(temp_merged_path)
-                    except:
-                        pass
+                    if success:
+                        try:
+                            os.remove(temp_merged_path)
+                        except:
+                            pass
+                        task.status = 'completed'
+                        task.progress = 100
+                        task.converting_progress = 100
+                        print(f'[Bili] 视频处理成功: {video_path}, 状态: completed')
+                    else:
+                        print(f'[Bili] 转换失败，保留原始文件')
+                        if os.path.exists(temp_merged_path):
+                            safe_rename(temp_merged_path, video_path)
+                        task.status = 'completed'
+                        task.progress = 100
+                        task.error = '视频转换失败，保留原始格式'
+                        print(f'[Bili] 状态: completed (转换失败但保留文件)')
+                else:
+                    print(f'[Bili] 不转码模式，直接保留下载文件')
+                    safe_rename(temp_merged_path, video_path)
                     task.status = 'completed'
                     task.progress = 100
                     task.converting_progress = 100
-                    print(f'[Bili] 视频处理成功: {video_path}, 状态: completed')
-                else:
-                    print(f'[Bili] 转换失败，保留原始文件')
-                    if os.path.exists(temp_merged_path):
-                        safe_rename(temp_merged_path, video_path)
-                    task.status = 'completed'
-                    task.progress = 100
-                    task.error = '视频转换失败，保留原始格式'
-                    print(f'[Bili] 状态: completed (转换失败但保留文件)')
+                    print(f'[Bili] 视频处理成功(未转码): {video_path}, 状态: completed')
 
             elif len(streams) >= 2:
                 print(f'[Bili] 双流模式下载（音视频分离）')
@@ -749,51 +789,76 @@ def download_video_task(task):
                     if audio_size < 1024:
                         print(f'[Bili] 警告: 音频文件较小({audio_size}B)')
 
-                task.status = 'converting'
-                task.converting_progress = 0
-                task.progress = 100
-                print(f'[Bili] 状态已更新为: converting, 下载进度: 100%')
-                print(f'[Bili] 开始合并并转换为H264格式')
+                if task.reencode:
+                    task.status = 'converting'
+                    task.converting_progress = 0
+                    task.progress = 100
+                    print(f'[Bili] 状态已更新为: converting, 下载进度: 100%')
+                    print(f'[Bili] 开始合并并转换为H264格式')
 
-                if audio_url and os.path.exists(temp_audio_path) and os.path.exists(temp_video_path):
-                    success = merge_and_convert_video_audio(temp_video_path, temp_audio_path, video_path, task)
-                    if success:
-                        try:
-                            os.remove(temp_video_path)
-                            os.remove(temp_audio_path)
-                        except:
-                            pass
-                        print(f'[Bili] 视频合并转换成功: {video_path}')
+                    if audio_url and os.path.exists(temp_audio_path) and os.path.exists(temp_video_path):
+                        success = merge_and_convert_video_audio(temp_video_path, temp_audio_path, video_path, task)
+                        if success:
+                            try:
+                                os.remove(temp_video_path)
+                                os.remove(temp_audio_path)
+                            except:
+                                pass
+                            print(f'[Bili] 视频合并转换成功: {video_path}')
+                        else:
+                            print(f'[Bili] 合并转换失败，尝试仅转换视频')
+                            if os.path.exists(temp_video_path):
+                                success2 = convert_to_h264(temp_video_path, video_path, task)
+                                if success2:
+                                    try:
+                                        os.remove(temp_video_path)
+                                        if os.path.exists(temp_audio_path):
+                                            os.remove(temp_audio_path)
+                                    except:
+                                        pass
+                                    print(f'[Bili] 视频转换成功: {video_path}')
+                                else:
+                                    print(f'[Bili] 转换失败，保留原始文件')
+                                    if os.path.exists(temp_video_path):
+                                        safe_rename(temp_video_path, video_path)
+                                    task.error = '视频转换失败，保留原始格式'
                     else:
-                        print(f'[Bili] 合并转换失败，尝试仅转换视频')
                         if os.path.exists(temp_video_path):
-                            success2 = convert_to_h264(temp_video_path, video_path, task)
-                            if success2:
+                            success = convert_to_h264(temp_video_path, video_path, task)
+                            if success:
                                 try:
                                     os.remove(temp_video_path)
-                                    if os.path.exists(temp_audio_path):
-                                        os.remove(temp_audio_path)
                                 except:
                                     pass
                                 print(f'[Bili] 视频转换成功: {video_path}')
                             else:
                                 print(f'[Bili] 转换失败，保留原始文件')
-                                if os.path.exists(temp_video_path):
-                                    safe_rename(temp_video_path, video_path)
+                                safe_rename(temp_video_path, video_path)
                                 task.error = '视频转换失败，保留原始格式'
                 else:
-                    if os.path.exists(temp_video_path):
-                        success = convert_to_h264(temp_video_path, video_path, task)
+                    print(f'[Bili] 不转码模式，仅合并音视频')
+                    task.status = 'merging'
+                    task.converting_progress = 0
+                    task.progress = 100
+
+                    if audio_url and os.path.exists(temp_audio_path) and os.path.exists(temp_video_path):
+                        success = merge_video_audio(temp_video_path, temp_audio_path, video_path, task)
                         if success:
                             try:
                                 os.remove(temp_video_path)
+                                os.remove(temp_audio_path)
                             except:
                                 pass
-                            print(f'[Bili] 视频转换成功: {video_path}')
+                            print(f'[Bili] 音视频合并成功(未转码): {video_path}')
                         else:
-                            print(f'[Bili] 转换失败，保留原始文件')
+                            print(f'[Bili] 合并失败，保留原始视频文件')
+                            if os.path.exists(temp_video_path):
+                                safe_rename(temp_video_path, video_path)
+                            task.error = '音视频合并失败，保留原始格式'
+                    else:
+                        if os.path.exists(temp_video_path):
                             safe_rename(temp_video_path, video_path)
-                            task.error = '视频转换失败，保留原始格式'
+                            print(f'[Bili] 仅视频流，直接保留(未转码): {video_path}')
 
                 task.status = 'completed'
                 task.progress = 100
@@ -820,7 +885,7 @@ def update_queue_positions():
             task.queue_position = i + 1
 
 
-def start_download(bvid):
+def start_download(bvid, reencode=True):
     with download_lock:
         if bvid in download_tasks:
             task = download_tasks[bvid]
@@ -834,7 +899,7 @@ def start_download(bvid):
             info, cid = get_video_info_sync(bvid)
             title = info.get('title', bvid)
 
-            task = DownloadTask(bvid, title, cid)
+            task = DownloadTask(bvid, title, cid, reencode=reencode)
             download_tasks[bvid] = task
 
             pending_count = len([t for t in download_tasks.values() if t.status == 'pending'])

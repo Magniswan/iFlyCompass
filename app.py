@@ -93,6 +93,12 @@ def run_migrations(app):
             cursor.execute("ALTER TABLE user ADD COLUMN is_active BOOLEAN DEFAULT 1")
             conn.commit()
             print("数据库迁移完成！")
+
+        if 'bili_reencode' not in columns:
+            print("正在迁移数据库：添加 bili_reencode 字段...")
+            cursor.execute("ALTER TABLE user ADD COLUMN bili_reencode BOOLEAN DEFAULT 1")
+            conn.commit()
+            print("数据库迁移完成！")
         
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='announcement'")
         if not cursor.fetchone():

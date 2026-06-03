@@ -255,13 +255,13 @@ def download_video(bvid):
     try:
         # 检查视频文件是否已缓存
         file_cached = is_video_cached(bvid)
-        
+
         # 检查用户是否已添加该视频到列表
         existing_record = BiliVideoUser.query.filter_by(
-            bvid=bvid, 
+            bvid=bvid,
             user_id=current_user.id
         ).first()
-        
+
         if existing_record:
             # 用户已有该视频，直接返回成功
             return jsonify({
@@ -269,7 +269,7 @@ def download_video(bvid):
                 'message': '视频已在您的缓存列表中',
                 'file_cached': file_cached
             })
-        
+
         if file_cached:
             # 文件已缓存但用户没有记录，添加用户记录
             new_record = BiliVideoUser(
@@ -279,14 +279,16 @@ def download_video(bvid):
             )
             db.session.add(new_record)
             db.session.commit()
-            
+
             return jsonify({
                 'status': 'added_to_list',
                 'message': '视频已添加到您的缓存列表'
             })
-        
+
         # 文件未缓存，需要下载
-        task = start_download(bvid)
+        data = request.get_json(silent=True) or {}
+        reencode = data.get('reencode', current_user.bili_reencode)
+        task = start_download(bvid, reencode=reencode)
         if task:
             # 创建用户记录（标记为下载中）
             new_record = BiliVideoUser(
@@ -296,12 +298,33 @@ def download_video(bvid):
             )
             db.session.add(new_record)
             db.session.commit()
-            
+
             return jsonify({'status': 'started', 'task': task.to_dict()})
         else:
             return jsonify({'status': 'cached', 'message': '视频已缓存'})
     except Exception as e:
         print(f'[Bili] 启动下载异常: {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@bili_bp.route('/api/bili/settings', methods=['GET', 'PUT'])
+@login_required
+def bili_settings():
+    if request.method == 'GET':
+        return jsonify({
+            'reencode': current_user.bili_reencode
+        })
+    try:
+        data = request.get_json(silent=True) or {}
+        reencode = data.get('reencode')
+        if reencode is not None:
+            current_user.bili_reencode = bool(reencode)
+            db.session.commit()
+        return jsonify({'success': True, 'reencode': current_user.bili_reencode})
+    except Exception as e:
+        print(f'[Bili] 保存设置异常: {e}')
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

@@ -602,6 +602,9 @@
                     </div>
                     <div class="header-right">
                         <h1 style="font-size: 18px;">B站视频</h1>
+                        <el-button type="text" size="mini" style="margin-left: 12px; color: #409eff;" @click="openBiliSettings">
+                            <i class="el-icon-setting"></i> 下载设置
+                        </el-button>
                     </div>
                 </el-header>
 
@@ -750,6 +753,9 @@
                                         <span class="video-meta">
                                             [[ currentVideo.author ]] · [[ currentVideo.quality ]]
                                         </span>
+                                        <el-tooltip content="关闭后仅合成音视频，不转码，速度更快但兼容性可能降低" placement="bottom">
+                                            <el-checkbox v-model="reencodeEnabled" size="mini" style="margin-left: 12px; flex-shrink: 0; white-space: nowrap;">转编码为H264</el-checkbox>
+                                        </el-tooltip>
                                     </div>
                                     <div class="player-container">
                                         <video
@@ -776,7 +782,7 @@
                                                 <template v-else-if="dlStatus === 'fetching'">获取视频信息...</template>
                                                 <template v-else-if="dlStatus === 'downloading'">正在下载...</template>
                                                 <template v-else-if="dlStatus === 'converting'">正在转换为H264格式...</template>
-                                                <template v-else-if="dlStatus === 'merging'">正在合并...</template>
+                                        <template v-else-if="dlStatus === 'merging'">正在合并音视频...</template>
                                                 <template v-else-if="dlStatus === 'error'">下载失败</template>
                                             </div>
                                             <div class="speed-text" v-if="dlStatus === 'pending'" style="color: #e6a23c;">
@@ -787,6 +793,9 @@
                                             </div>
                                             <div class="speed-text" v-else-if="dlStatus === 'converting'" style="color: #e6a23c;">
                                                 FFmpeg 视频转换中，请稍候...
+                                            </div>
+                                            <div class="speed-text" v-else-if="dlStatus === 'merging'" style="color: #e6a23c;">
+                                                正在合成音视频，请稍候...
                                             </div>
                                             <div class="speed-text" v-else-if="dlStatus === 'error'" style="color: #f56c6c;">
                                                 [[ dlError ]]
@@ -862,6 +871,29 @@
             <span slot="footer" class="dialog-footer">
                 <el-button @click="profileDialogVisible = false">关闭</el-button>
                 <el-button type="primary" @click="saveProfile" v-if="profileActiveTab === 'basic'">保存</el-button>
+            </span>
+        </el-dialog>
+
+        <el-dialog
+            title="B站下载设置"
+            :visible.sync="biliSettingsVisible"
+            width="400px"
+        >
+            <el-form label-width="120px" size="small">
+                <el-form-item label="转编码为H264">
+                    <el-switch
+                        v-model="biliSettingsReencode"
+                        active-text="开启"
+                        inactive-text="关闭"
+                    ></el-switch>
+                    <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+                        关闭后仅合成音视频，不转码，速度更快但兼容性可能降低
+                    </div>
+                </el-form-item>
+            </el-form>
+            <span slot="footer" class="dialog-footer">
+                <el-button @click="biliSettingsVisible = false">取消</el-button>
+                <el-button type="primary" @click="saveBiliSettings" :loading="biliSettingsSaving">保存</el-button>
             </span>
         </el-dialog>
     </div>
@@ -965,6 +997,14 @@
                     dlTotalDisplay: '',     // 总大小显示
                     dlQueuePosition: 0,     // 队列位置
                     dlError: '',            // 错误信息
+
+                    // 下载设置
+                    reencodeEnabled: true,  // 是否转编码（默认开启）
+
+                    // B站设置弹窗
+                    biliSettingsVisible: false,
+                    biliSettingsReencode: true,
+                    biliSettingsSaving: false,
                 };
             },
             mounted() {
@@ -979,6 +1019,7 @@
 
                 this.loadRecommend();
                 this.loadCached();
+                this.loadBiliSettings();
                 
                 this.$nextTick(function() {
                     var listEl = document.querySelector('.bili-list');
@@ -1465,12 +1506,16 @@
                 startDownload(bvid) {
                     var self = this;
 
-                    console.log('[BiliPlayer] 🎬 开始下载 - 设置 currentBvid:', bvid);
+                    console.log('[BiliPlayer] 🎬 开始下载 - 设置 currentBvid:', bvid, '转编码:', this.reencodeEnabled);
 
                     // 关键修复：立即设置 currentBvid，这样 updateConvertingProgress 才能匹配到当前视频
                     this.currentBvid = bvid;
 
-                    fetch('/api/bili/download/' + bvid, { method: 'POST' })
+                    fetch('/api/bili/download/' + bvid, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reencode: this.reencodeEnabled })
+                    })
                         .then(function(r) { return r.json(); })
                         .then(function(data) {
                             if (data.error) {
@@ -1478,7 +1523,7 @@
                             } else if (data.status === 'exists_in_list') {
                                 // 视频已在用户的缓存列表中
                                 self.$message.info('该视频已在您的缓存列表中');
-                                
+
                                 // 如果文件已缓存，直接播放
                                 if (data.file_cached) {
                                     self.playVideo(bvid);
@@ -2013,6 +2058,49 @@
                     if (routes[key]) {
                         window.location.href = routes[key];
                     }
+                },
+                loadBiliSettings() {
+                    var self = this;
+                    fetch('/api/bili/settings')
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.reencode !== undefined) {
+                                self.reencodeEnabled = data.reencode;
+                                self.biliSettingsReencode = data.reencode;
+                            }
+                        })
+                        .catch(function(e) {
+                            console.error('[BiliPlayer] 加载设置失败:', e);
+                        });
+                },
+                openBiliSettings() {
+                    this.biliSettingsReencode = this.reencodeEnabled;
+                    this.biliSettingsVisible = true;
+                },
+                saveBiliSettings() {
+                    var self = this;
+                    this.biliSettingsSaving = true;
+                    fetch('/api/bili/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reencode: this.biliSettingsReencode })
+                    })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            self.biliSettingsSaving = false;
+                            if (data.error) {
+                                self.$message.error(data.error);
+                            } else {
+                                self.reencodeEnabled = self.biliSettingsReencode;
+                                self.biliSettingsVisible = false;
+                                self.$message.success('设置已保存');
+                            }
+                        })
+                        .catch(function(e) {
+                            self.biliSettingsSaving = false;
+                            console.error('[BiliPlayer] 保存设置失败:', e);
+                            self.$message.error('保存失败');
+                        });
                 }
             }
         });

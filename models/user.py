@@ -17,6 +17,7 @@ class User(UserMixin, db.Model):
     session_version = db.Column(db.Integer, default=0)
     line_height = db.Column(db.Float, default=1.6)
     letter_spacing = db.Column(db.Float, default=0.0)
+    bili_reencode = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def set_password(self, password):
