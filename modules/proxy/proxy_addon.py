@@ -2,7 +2,7 @@ import re
 import secrets
 import os
 from mitmproxy import http
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse
 
 PROXY_PORT = 5003
 _proxy_host = None
@@ -127,7 +127,7 @@ class WebProxyAddon:
                         if not flow.request.headers.get('Origin') or self._is_proxy_origin(flow.request.headers.get('Origin', '')):
                             bp = urlparse(inferred_base)
                             oh = bp.hostname
-                            if bp.port and bp.port not in (80, 444):
+                            if bp.port and bp.port not in (80, 443):
                                 oh += ':' + str(bp.port)
                             flow.request.headers['Origin'] = bp.scheme + '://' + oh
                     else:
@@ -190,7 +190,9 @@ class WebProxyAddon:
         return origin.startswith(proxy_base) or origin in ('http://localhost', 'http://127.0.0.1')
 
     def _parse_target_any(self, path):
-        path = unquote(path)
+        # 注意：不要 unquote。mitmproxy 收到的 path 已经是 URL 编码形式，
+        # 若 unquote 会把 %E4%B8%AD%E6%96%87 还原为原始中文，导致 upstream
+        # 收到的 HTTP 请求行包含非 ASCII 字符（Bing 等站点会无法处理中文搜索）。
         if path.startswith('/'):
             path = path[1:]
 
@@ -458,7 +460,22 @@ class WebProxyAddon:
                     return '"' + to_proxy_url(url) + '"'
                 return s_match.group(0)
 
+            def replace_url_in_single_quote(s_match):
+                url = s_match.group(1)
+                if not url or len(url) < 5:
+                    return s_match.group(0)
+                if url.startswith(('data:', 'javascript:', 'mailto:', 'blob:', '#', 'about:')):
+                    return s_match.group(0)
+                if url.startswith(proxy_prefix):
+                    return s_match.group(0)
+                if url.startswith('https://') or url.startswith('http://'):
+                    if ph and (ph in url):
+                        return s_match.group(0)
+                    return "'" + to_proxy_url(url) + "'"
+                return s_match.group(0)
+
             new_body = re.sub(r'"(https?://[^"]+)"', replace_url_in_string, script_body)
+            new_body = re.sub(r"'(https?://[^']+)'", replace_url_in_single_quote, new_body)
 
             return prefix + new_body + suffix
 
