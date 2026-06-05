@@ -10,6 +10,7 @@ lib/
 libs/
 CLAUDE.md
 docs/
+.trae/
 
 # Pyinstaller 生成的文件
 dist/
