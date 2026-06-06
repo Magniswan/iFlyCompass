@@ -78,6 +78,9 @@
             createForm: { name: '', password: '' },
             showGameOver: false,
             gameWinners: [],
+            gameOverReason: '',
+            scores: {0: 0, 1: 0, 2: 0},
+            scoreChange: {},
             displayName: currentDisplayName,
             username: currentUsername,
             nickname: currentNickname,
@@ -149,6 +152,21 @@
             mustPlay: function() {
                 if (!this.lastPlay) return true;
                 return this.lastPlay.seat === this.mySeat;
+            },
+            scoreDisplay: function() {
+                var result = {};
+                if (!this.room || !this.room.players) return result;
+                for (var i = 0; i < 3; i++) {
+                    var p = this.room.players[i];
+                    if (p) {
+                        result[i] = {
+                            name: p.nickname || p.username,
+                            score: this.scores[i] || 0,
+                            change: this.scoreChange[i] || 0
+                        };
+                    }
+                }
+                return result;
             }
         },
         mounted: function() {
@@ -335,6 +353,9 @@
                 this.messages = [];
                 this.showGameOver = false;
                 this.gameWinners = [];
+                this.gameOverReason = '';
+                this.scores = {0: 0, 1: 0, 2: 0};
+                this.scoreChange = {};
                 this.chatOpen = false;
             },
             resetGameState: function() {
@@ -343,6 +364,8 @@
                 this.selectedCards = [];
                 this.showGameOver = false;
                 this.gameWinners = [];
+                this.gameOverReason = '';
+                this.scoreChange = {};
             },
             loadRoomDetail: function() {
                 if (!this.roomId) return;
@@ -406,6 +429,10 @@
             passTurn: function() {
                 if (!this.roomId) return;
                 socket.emit('pass', { room_id: this.roomId });
+            },
+            playAgain: function() {
+                if (!this.roomId || !this.isCreator) return;
+                socket.emit('play_again', { room_id: this.roomId });
             },
             sendMessage: function() {
                 var msg = this.chatInput.trim();
@@ -601,6 +628,13 @@
                     self.gameState.phase = 'ended';
                     self.gameWinners = data.winners || [];
                     self.showGameOver = true;
+                    self.gameOverReason = data.reason || '';
+                    if (data.score_change) {
+                        self.scoreChange = data.score_change;
+                    }
+                    if (data.scores) {
+                        self.scores = data.scores;
+                    }
                     if (data.game_state && data.game_state.hands) {
                         self.gameState.hands = data.game_state.hands;
                         if (self.mySeat !== -1 && data.game_state.hands[String(self.mySeat)]) {
@@ -615,6 +649,40 @@
                     self.inRoom = false;
                     self.roomId = '';
                     self.loadRooms();
+                });
+
+                socket.on('player_left_game', function(data) {
+                    console.log('Player left game:', data);
+                    if (self.room && self.room.players && data.seat !== undefined) {
+                        self.room.players[data.seat] = null;
+                    }
+                    self.gameState.phase = 'ended';
+                    self.showGameOver = true;
+                    self.gameWinners = [];
+                    if (data.reason === 'creator_left') {
+                        self.gameOverReason = '房主离开';
+                    } else {
+                        self.gameOverReason = '玩家离开';
+                    }
+                });
+
+                socket.on('play_again_ok', function(data) {
+                    console.log('Play again ok:', data);
+                    self.room.status = 'waiting';
+                    self.gameState = {};
+                    self.myCards = [];
+                    self.selectedCards = [];
+                    self.showGameOver = false;
+                    self.gameWinners = [];
+                    self.gameOverReason = '';
+                    self.scoreChange = {};
+                    if (data.room) {
+                        self.room = data.room;
+                    }
+                    if (data.scores) {
+                        self.scores = data.scores;
+                    }
+                    self.$message.success('再来一局！请准备');
                 });
 
                 socket.on('new_message', function(data) {

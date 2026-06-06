@@ -96,7 +96,8 @@ def create_room():
         'max_players': 3,
         'players': [None, None, None],
         'messages': [],
-        'game_state': {}
+        'game_state': {},
+        'scores': {0: 0, 1: 0, 2: 0}
     }
     
     # 创建者加入座位 0

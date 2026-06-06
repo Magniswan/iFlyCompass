@@ -1,4 +1,5 @@
-﻿from datetime import datetime, timezone
+import random
+from datetime import datetime, timezone
 from flask_socketio import join_room, leave_room, emit
 from flask import current_app
 from flask_login import current_user
@@ -41,11 +42,14 @@ def _check_five_in_row(board, x, y, player):
 
 def _init_game_state(room):
     """初始化五子棋游戏状态"""
+    # 随机决定先手：0号位黑方或白方
+    first_player = random.choice([0, 1])
+    second_player = 1 - first_player
     game_state = {
         'board': [[0]*BOARD_SIZE for _ in range(BOARD_SIZE)],
         'current_turn': 1,  # 1=黑方, 2=白方
-        'black_player': 0,
-        'white_player': 1,
+        'black_player': first_player,
+        'white_player': second_player,
         'move_history': [],
         'winner': None,
         'winning_line': [],
@@ -164,6 +168,13 @@ def _end_game(room, winner_seats, reason=''):
     gs['winner'] = winner_seats
     room['status'] = 'ended'
 
+    # 更新比分
+    if 'scores' not in room:
+        room['scores'] = {0: 0, 1: 0}
+    if winner_seats:
+        for seat in winner_seats:
+            room['scores'][seat] = room['scores'].get(seat, 0) + 1
+
     winner_ids = []
     for seat in winner_seats:
         p = room['players'][seat]
@@ -176,6 +187,7 @@ def _end_game(room, winner_seats, reason=''):
         'room_id': room['room_id'],
         'winners': winner_seats,
         'reason': reason,
+        'scores': room['scores'],
         'game_state': {
             'board': gs['board'],
             'current_turn': gs['current_turn'],
@@ -271,12 +283,25 @@ def register_socketio_events(socketio):
 
             if is_creator:
                 if room['status'] == 'playing':
-                    # 游戏进行中，其他玩家获胜
                     remaining = [i for i, p in enumerate(room['players']) if p is not None and i != seat]
                     if remaining:
                         _end_game(room, remaining, 'creator_left')
-                    else:
-                        _end_game(room, [], 'creator_left')
+                    room['status'] = 'ended'
+                    room['players'][seat] = None
+                    # 检查是否所有玩家都已离开
+                    all_left = all(p is None for p in room['players'])
+                    if all_left:
+                        if room_id in rooms:
+                            del rooms[room_id]
+                        return
+                    emit('player_left_game', {
+                        'room_id': room_id,
+                        'seat': seat,
+                        'username': current_user.username,
+                        'reason': 'creator_left'
+                    }, room=room_id)
+                    return
+                # 非游戏中状态，房主离开直接解散
                 room['status'] = 'ended'
                 emit('room_disbanded', {'room_id': room_id, 'reason': 'creator_left'}, room=room_id)
                 if room_id in rooms:
@@ -290,9 +315,18 @@ def register_socketio_events(socketio):
                 if remaining:
                     _end_game(room, remaining, 'player_left')
                 room['status'] = 'ended'
-                emit('room_disbanded', {'room_id': room_id, 'reason': 'player_left'}, room=room_id)
-                if room_id in rooms:
-                    del rooms[room_id]
+                # 检查是否所有玩家都已离开
+                all_left = all(p is None for p in room['players'])
+                if all_left:
+                    if room_id in rooms:
+                        del rooms[room_id]
+                    return
+                emit('player_left_game', {
+                    'room_id': room_id,
+                    'seat': seat,
+                    'username': current_user.username,
+                    'reason': 'player_left'
+                }, room=room_id)
                 return
 
             emit('player_left', {
@@ -355,11 +389,11 @@ def register_socketio_events(socketio):
                 return
 
             gs = _init_game_state(room)
-            # 设置角色
-            if room['players'][0]:
-                room['players'][0]['role'] = 'black'
-            if room['players'][1]:
-                room['players'][1]['role'] = 'white'
+            # 设置角色（基于随机分配）
+            if room['players'][gs['black_player']]:
+                room['players'][gs['black_player']]['role'] = 'black'
+            if room['players'][gs['white_player']]:
+                room['players'][gs['white_player']]['role'] = 'white'
 
             emit('game_started', {
                 'room_id': room_id,
@@ -379,7 +413,8 @@ def register_socketio_events(socketio):
                     for p in room['players']
                 ]
             }, room=room_id)
-            emit('new_message', _add_system_message(room, "游戏开始！黑方先行"), room=room_id)
+            first_player_name = room['players'][gs['black_player']]['username'] if room['players'][gs['black_player']] else '黑方'
+            emit('new_message', _add_system_message(room, f"游戏开始！{first_player_name} 执黑先行"), room=room_id)
         except Exception as e:
             emit('error', {'message': f'开始游戏事件失败: {str(e)}'})
 
@@ -589,6 +624,51 @@ def register_socketio_events(socketio):
         except Exception as e:
             emit('error', {'message': f'认输失败: {str(e)}'})
 
+    @socketio.on('play_again', namespace='/game-gomoku')
+    def on_play_again(data):
+        """再来一局"""
+        try:
+            room_id = data.get('room_id')
+            room = rooms.get(room_id)
+            if not room:
+                emit('error', {'message': '房间不存在'})
+                return
+            if room['creator_id'] != current_user.id:
+                emit('error', {'message': '只有房主可以发起再来一局'})
+                return
+            if room['status'] != 'ended':
+                emit('error', {'message': '当前不在游戏结束状态'})
+                return
+
+            # 重置房间状态
+            room['status'] = 'waiting'
+            room['game_state'] = {}
+            for p in room['players']:
+                if p:
+                    p['ready'] = False
+                    p['role'] = 'unknown'
+
+            emit('play_again_ok', {
+                'room_id': room_id,
+                'room': _get_room_summary(room)
+            }, room=room_id)
+            emit('new_message', _add_system_message(room, "房主发起了再来一局，请准备"), room=room_id)
+        except Exception as e:
+            emit('error', {'message': f'再来一局失败: {str(e)}'})
+
+    @socketio.on('disconnect', namespace='/game-gomoku')
+    def on_disconnect():
+        """玩家断线处理"""
+        try:
+            for room_id, room in list(rooms.items()):
+                seat = _get_player_seat(room, current_user.id)
+                if seat is not None:
+                    if room['players'][seat]:
+                        room['players'][seat]['is_online'] = False
+                    break
+        except Exception as e:
+            print(f"断线处理失败: {e}")
+
     @socketio.on('send_message', namespace='/game-gomoku')
     def on_send_message(data):
         """发送聊天消息"""
@@ -629,6 +709,7 @@ def _get_room_summary(room):
         'creator_id': room['creator_id'],
         'creator_name': room['creator_name'],
         'max_players': room['max_players'],
+        'scores': room.get('scores', {0: 0, 1: 0}),
         'players': [
             {
                 'user_id': p['user_id'],

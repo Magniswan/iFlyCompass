@@ -907,6 +907,9 @@
                                         <div class="player-card-count" v-if="gameState.phase === 'playing' || gameState.phase === 'ended'">
                                             [[ getHandCount(otherPlayers[1].seat) ]] 张
                                         </div>
+                                        <div style="font-size: 11px; color: #ffd700;" v-if="scores[otherPlayers[1].seat] !== undefined">
+                                            [[ scores[otherPlayers[1].seat] ]]分
+                                        </div>
                                     </div>
                                     <div class="player-info" v-else>
                                         <div class="player-avatar-large empty">?</div>
@@ -957,6 +960,9 @@
                                                 [[ p.nickname || p.username ]]
                                                 <span v-if="p.ready" class="ready-badge">已准备</span>
                                                 <span v-else class="not-ready-badge">未准备</span>
+                                                <div v-if="scores[p.seat] !== undefined" style="font-size: 12px; color: #ffd700; margin-top: 2px;">
+                                                    积分: [[ scores[p.seat] ]]
+                                                </div>
                                             </div>
                                             <div v-else>等待加入...</div>
                                         </div>

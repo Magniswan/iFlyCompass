@@ -27,6 +27,7 @@ def _get_room_summary(room):
         'created_at': room['created_at'].isoformat() if isinstance(room['created_at'], datetime) else room['created_at'],
         'max_players': room['max_players'],
         'player_count': len([p for p in room['players'] if p is not None]),
+        'scores': room.get('scores', {0: 0, 1: 0}),
         'players': [
             {
                 'user_id': p['user_id'],
@@ -92,7 +93,8 @@ def create_room():
         'max_players': 2,
         'players': [None, None],
         'messages': [],
-        'game_state': {}
+        'game_state': {},
+        'scores': {0: 0, 1: 0}
     }
     
     # 创建者加入座位 0 (红方)

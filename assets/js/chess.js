@@ -65,6 +65,7 @@
             drawOffered: false,
             drawOfferedBy: null,
             selectedPiece: null,
+            scores: {0: 0, 1: 0},
             displayName: currentDisplayName,
             username: currentUsername,
             nickname: currentNickname,
@@ -381,6 +382,10 @@
                 if (!this.roomId || !this.isPlayer) return;
                 socket.emit('resign', { room_id: this.roomId });
             },
+            playAgain: function() {
+                if (!this.roomId || !this.isCreator) return;
+                socket.emit('play_again', { room_id: this.roomId });
+            },
             sendMessage: function() {
                 var msg = this.chatInput.trim();
                 if (!msg || !this.roomId) return;
@@ -618,7 +623,6 @@
                     console.log('Room created:', data);
                     self.inRoom = true;
                     self.mySeat = data.seat || 0;
-                    self.myColor = 'red';
                     self.loadRoomDetail();
                 });
 
@@ -758,6 +762,9 @@
                 socket.on('game_ended', function(data) {
                     self.room.status = 'ended';
                     self.gameState.winner = data.winners;
+                    if (data.scores) {
+                        self.scores = data.scores;
+                    }
                     if (data.winners && data.winners.length > 0) {
                         self.showGameOver = true;
                         var winnerSeat = data.winners[0];
@@ -784,6 +791,39 @@
                     self.inRoom = false;
                     self.roomId = '';
                     self.loadRooms();
+                });
+
+                socket.on('player_left_game', function(data) {
+                    console.log('Player left game:', data);
+                    if (self.room && self.room.players && data.seat !== undefined) {
+                        self.room.players[data.seat] = null;
+                    }
+                    self.showGameOver = true;
+                    if (data.reason === 'creator_left') {
+                        self.gameOverTitle = '房主离开';
+                        self.gameOverText = '房主已离开游戏';
+                    } else {
+                        self.gameOverTitle = '对手离开';
+                        self.gameOverText = (data.username || '对手') + ' 已离开游戏';
+                    }
+                });
+
+                socket.on('play_again_ok', function(data) {
+                    console.log('Play again ok:', data);
+                    self.room.status = 'waiting';
+                    self.gameState = {};
+                    self.board = [];
+                    self.selectedPiece = null;
+                    self.showGameOver = false;
+                    self.drawOffered = false;
+                    self.drawOfferedBy = null;
+                    if (data.room) {
+                        self.room = data.room;
+                    }
+                    if (data.room && data.room.scores) {
+                        self.scores = data.room.scores;
+                    }
+                    self.$message.success('再来一局！请准备');
                 });
 
                 socket.on('new_message', function(data) {

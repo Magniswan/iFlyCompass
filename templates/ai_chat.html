@@ -11,10 +11,10 @@
     <link rel="stylesheet" href="/assets/css/drop.css">
     <style>
         :root {
-            --ds-brand: #3964fe;
+            --ds-brand: #4F6EF7;
             --ds-brand-light: #edf3fe;
             --ds-brand-border: #b7c8fe;
-            --ds-brand-hover: #5686fe;
+            --ds-brand-hover: #3d5ce5;
             --ds-bg-white: #fff;
             --ds-bg-main: #fff;
             --ds-bg-sidebar: #f9fafb;
@@ -27,10 +27,10 @@
             --ds-text-secondary: #61666b;
             --ds-text-tertiary: #adb2b8;
             --ds-text-dimmed: #e1e5ee;
-            --ds-input-bg: #f1f3f5;
+            --ds-input-bg: #f5f5f5;
             --ds-input-border: transparent;
-            --ds-input-focus-border: #3964fe;
-            --ds-input-radius: 10px;
+            --ds-input-focus-border: #4F6EF7;
+            --ds-input-radius: 12px;
             --ds-btn-radius: 4096px;
             --ds-icon-btn-hover: rgba(38, 49, 72, 0.06);
             --ds-shadow-lv1: 0 2px 4px 0 rgba(0, 0, 0, 0.05);
@@ -40,7 +40,7 @@
             --ds-font-mono: Menlo, Monaco, Consolas, "Cascadia Mono", "Ubuntu Mono", "DejaVu Sans Mono", "JetBrains Mono", "Fira Code", "Courier New", monospace;
             --ds-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             --ds-transition-fast: 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-            --sider-width: 261px;
+            --sider-width: 280px;
             --content-max: 840px;
             --content-px: 44px;
         }
@@ -91,7 +91,7 @@
             font-weight: 600;
             color: var(--ds-text-primary);
         }
-        .sidebar-back {
+        .sidebar-close {
             width: 28px;
             height: 28px;
             border-radius: 50%;
@@ -105,7 +105,7 @@
             color: var(--ds-text-secondary);
             transition: background-color var(--ds-transition-fast);
         }
-        .sidebar-back:hover { background: var(--ds-bg-hover); color: var(--ds-text-primary); }
+        .sidebar-close:hover { background: var(--ds-bg-hover); color: var(--ds-text-primary); }
 
         .sidebar-new-btn {
             margin: 8px 12px;
@@ -139,6 +139,15 @@
         .sidebar-conv-list::-webkit-scrollbar { width: 4px; }
         .sidebar-conv-list::-webkit-scrollbar-thumb { background: var(--ds-text-dimmed); border-radius: 2px; }
         .sidebar-conv-list::-webkit-scrollbar-thumb:hover { background: var(--ds-text-tertiary); }
+
+        .conv-group-title {
+            font-size: 11px;
+            color: var(--ds-text-tertiary);
+            padding: 8px 14px 4px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
         .sidebar-conv-item {
             padding: 9px 14px;
@@ -187,6 +196,48 @@
             color: var(--ds-text-tertiary);
         }
 
+        .sidebar-footer {
+            padding: 12px 16px;
+            border-top: 1px solid var(--ds-border-l1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-footer .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--ds-brand-light);
+            color: var(--ds-brand);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        .sidebar-footer .user-info { flex: 1; min-width: 0; }
+        .sidebar-footer .user-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ds-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-footer .user-menu-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ds-text-tertiary);
+            transition: all var(--ds-transition-fast);
+        }
+        .sidebar-footer .user-menu-btn:hover { background: var(--ds-bg-hover); color: var(--ds-text-primary); }
+
         /* ═══════ MAIN CHAT ═══════ */
         .main-chat {
             flex: 1;
@@ -210,8 +261,8 @@
         .top-bar-right { display: flex; align-items: center; gap: 6px; }
 
         .icon-btn {
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             border: none;
             background: transparent;
@@ -227,32 +278,17 @@
         .icon-btn:hover { background: var(--ds-icon-btn-hover); color: var(--ds-text-primary); }
         .icon-btn:active { background: var(--ds-bg-active); }
 
-        .brand-badge {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            border-radius: 4096px;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--ds-brand);
-            background: var(--ds-brand-light);
-            border: 1px solid var(--ds-brand-border);
-            cursor: pointer;
-            transition: all var(--ds-transition-fast);
-            font-family: inherit;
+        .top-bar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--ds-text-primary);
+            flex: 1;
+            text-align: center;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 12px;
         }
-        .brand-badge:hover { background: #e4edfd; }
-        .brand-badge .badge-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
-        .brand-badge .badge-arrow { font-size: 11px; }
-
-        .brand-badge.user-badge {
-            color: var(--ds-text-secondary);
-            background: transparent;
-            border: 1px solid var(--ds-border-l2);
-        }
-        .brand-badge.user-badge:hover { background: var(--ds-bg-hover); }
 
         /* ═══════ CHAT MESSAGES ═══════ */
         .chat-body {
@@ -288,14 +324,14 @@
             width: 64px;
             height: 64px;
             border-radius: 18px;
-            background: linear-gradient(135deg, #3964fe, #5686fe);
+            background: linear-gradient(135deg, #4F6EF7, #6b8cff);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 28px;
             color: #fff;
             margin-bottom: 20px;
-            box-shadow: 0 8px 24px rgba(57, 100, 254, 0.25);
+            box-shadow: 0 8px 24px rgba(79, 110, 247, 0.25);
         }
         .welcome-area h2 {
             font-size: 24px;
@@ -465,7 +501,7 @@
         .input-container:focus-within {
             background: var(--ds-bg-white);
             border-color: var(--ds-input-focus-border);
-            box-shadow: 0 0 0 3px rgba(57, 100, 254, 0.12);
+            box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.12);
         }
         .input-row {
             display: flex;
@@ -503,7 +539,7 @@
             background: var(--ds-brand);
             color: #fff;
             transition: all var(--ds-transition-fast);
-            box-shadow: 0 2px 6px rgba(57, 100, 254, 0.3);
+            box-shadow: 0 2px 6px rgba(79, 110, 247, 0.3);
         }
         .send-btn:hover { background: var(--ds-brand-hover); transform: scale(1.06); }
         .send-btn:active { transform: scale(0.94); }
@@ -521,16 +557,16 @@
             justify-content: space-between;
             padding: 4px 12px 8px;
         }
-        .footer-left { display: flex; align-items: center; gap: 4px; }
+        .footer-left { display: flex; align-items: center; gap: 8px; }
         .footer-right { display: flex; align-items: center; }
 
-        .think-btn {
+        .tag-btn {
             display: flex;
             align-items: center;
             gap: 5px;
-            padding: 3px 10px;
+            padding: 4px 12px;
             border-radius: var(--ds-btn-radius);
-            border: 1px solid transparent;
+            border: 1px solid var(--ds-border-l2);
             background: transparent;
             cursor: pointer;
             font-size: 12px;
@@ -540,14 +576,31 @@
             transition: all var(--ds-transition-fast);
             user-select: none;
         }
-        .think-btn:hover { background: var(--ds-bg-hover); color: var(--ds-text-primary); }
-        .think-btn.on { background: var(--ds-brand-light); border-color: var(--ds-brand-border); color: var(--ds-brand); }
-        .think-btn.off { opacity: 0.35; cursor: not-allowed; }
-        .think-btn.off:hover { background: transparent; color: var(--ds-text-secondary); }
+        .tag-btn:hover { background: var(--ds-bg-hover); color: var(--ds-text-primary); }
+        .tag-btn.on {
+            background: var(--ds-brand);
+            border-color: var(--ds-brand);
+            color: #fff;
+        }
+        .tag-btn.off { opacity: 0.35; cursor: not-allowed; border-color: var(--ds-border-l2); }
+        .tag-btn.off:hover { background: transparent; color: var(--ds-text-secondary); }
+
+        .model-tag {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
 
         .char-count {
             font-size: 11px;
             color: var(--ds-text-tertiary);
+        }
+
+        .disclaimer {
+            text-align: center;
+            font-size: 11px;
+            color: var(--ds-text-tertiary);
+            margin-top: 6px;
         }
 
         /* ═══════ POPOVER / DROPDOWN STYLES (override Element UI) ═══════ */
@@ -587,33 +640,71 @@
             <nav class="sidebar" :class="{ collapsed: !sidebarVisible }">
                 <div class="sidebar-header">
                     <span class="sidebar-title">对话</span>
-                    <button class="sidebar-back" @click="goBack" title="返回">
+                    <button class="sidebar-close" @click="sidebarVisible = false" title="关闭">
                         <i class="el-icon-arrow-left"></i>
                     </button>
                 </div>
                 <button class="sidebar-new-btn" @click="newConversation">
                     <i class="el-icon-plus" style="font-size:14px;"></i>
-                    新对话
+                    开启新对话
                 </button>
                 <div class="sidebar-conv-list" ref="convList">
-                    <div v-for="c in conversations" :key="c.id"
-                         class="sidebar-conv-item"
-                         :class="{ active: currentConvId === c.id }"
-                         @click="selectConversation(c.id)">
-                        <div class="conv-info">
-                            <div class="conv-title">[[ c.title ]]</div>
-                            <div class="conv-meta">[[ c.message_count || 0 ]] 条消息</div>
+                    <template v-if="groupedConversations.today.length > 0">
+                        <div class="conv-group-title">今天</div>
+                        <div v-for="c in groupedConversations.today" :key="c.id"
+                             class="sidebar-conv-item"
+                             :class="{ active: currentConvId === c.id }"
+                             @click="selectConversation(c.id)">
+                            <div class="conv-info">
+                                <div class="conv-title">[[ c.title ]]</div>
+                            </div>
+                            <button class="conv-del" @click.stop="deleteConversation(c.id)" title="删除">
+                                <i class="el-icon-delete"></i>
+                            </button>
                         </div>
-                        <button class="conv-del" @click.stop="deleteConversation(c.id)" title="删除">
-                            <i class="el-icon-delete"></i>
-                        </button>
-                    </div>
+                    </template>
+                    <template v-if="groupedConversations.yesterday.length > 0">
+                        <div class="conv-group-title">昨天</div>
+                        <div v-for="c in groupedConversations.yesterday" :key="c.id"
+                             class="sidebar-conv-item"
+                             :class="{ active: currentConvId === c.id }"
+                             @click="selectConversation(c.id)">
+                            <div class="conv-info">
+                                <div class="conv-title">[[ c.title ]]</div>
+                            </div>
+                            <button class="conv-del" @click.stop="deleteConversation(c.id)" title="删除">
+                                <i class="el-icon-delete"></i>
+                            </button>
+                        </div>
+                    </template>
+                    <template v-if="groupedConversations.earlier.length > 0">
+                        <div class="conv-group-title">更早</div>
+                        <div v-for="c in groupedConversations.earlier" :key="c.id"
+                             class="sidebar-conv-item"
+                             :class="{ active: currentConvId === c.id }"
+                             @click="selectConversation(c.id)">
+                            <div class="conv-info">
+                                <div class="conv-title">[[ c.title ]]</div>
+                            </div>
+                            <button class="conv-del" @click.stop="deleteConversation(c.id)" title="删除">
+                                <i class="el-icon-delete"></i>
+                            </button>
+                        </div>
+                    </template>
                     <div class="sidebar-empty" v-if="conversations.length === 0">
                         暂无对话<br><span style="font-size:11px;">点击上方按钮开始</span>
                     </div>
                 </div>
 
-
+                <div class="sidebar-footer">
+                    <div class="user-avatar"><i class="el-icon-user"></i></div>
+                    <div class="user-info">
+                        <div class="user-name">[[ displayName ]]</div>
+                    </div>
+                    <button class="user-menu-btn" @click="confirmLogout" title="退出登录">
+                        <i class="el-icon-switch-button"></i>
+                    </button>
+                </div>
             </nav>
 
             <!-- ═══════ MAIN CHAT ═══════ -->
@@ -625,50 +716,18 @@
                         <button class="icon-btn" @click="sidebarVisible = !sidebarVisible" title="切换侧栏">
                             <i :class="sidebarVisible ? 'el-icon-s-fold' : 'el-icon-s-unfold'"></i>
                         </button>
-
-                        <button class="icon-btn" @click="goBack" title="返回小工具">
-                            <i class="el-icon-close"></i>
-                        </button>
-
-                        <!-- Model Selector -->
-                        <el-popover placement="bottom-start" trigger="click" width="260" popper-class="model-popover">
-                            <div v-for="m in models" :key="m.id"
-                                 class="model-pop-item"
-                                 :class="{ selected: selectedModel === m.id }"
-                                 @click="selectModel(m.id)">
-                                <div class="pop-item-name">[[ m.name ]]</div>
-                                <div class="pop-item-desc">[[ m.description ]]</div>
-                            </div>
-                            <el-button slot="reference" class="brand-badge" style="font-family:inherit;font-weight:500;">
-                                <span class="badge-name">[[ selectedModelName ]]</span>
-                                <i class="badge-arrow el-icon-arrow-down"></i>
-                            </el-button>
-                        </el-popover>
                     </div>
+
+                    <div class="top-bar-title" v-if="currentConvTitle">[[ currentConvTitle ]]</div>
+                    <div class="top-bar-title" v-else>AI 对话</div>
 
                     <div class="top-bar-right">
                         <button class="icon-btn" v-if="isAdmin" @click="showSettings = true" title="AI 设置">
                             <i class="el-icon-setting"></i>
                         </button>
-                        <button class="icon-btn" @click="refreshModels" title="刷新模型列表">
-                            <i class="el-icon-refresh"></i>
+                        <button class="icon-btn" @click="goBack" title="返回小工具">
+                            <i class="el-icon-close"></i>
                         </button>
-
-                        <!-- User Menu -->
-                        <el-popover placement="bottom-end" trigger="click" width="180" popper-class="user-popover">
-                            <div style="padding: 6px 0;">
-                                <div style="padding: 6px 14px; font-weight: 600; font-size: 14px;">[[ displayName ]]</div>
-                                <div style="padding: 0 14px 6px; font-size: 11px; color: var(--ds-text-tertiary);">@[[ username ]]</div>
-                                <div style="height: 1px; background: var(--ds-border-l1); margin: 4px 0;"></div>
-                                <div style="padding: 8px 14px; cursor: pointer; font-size: 13px;" @click="goBack">
-                                    <i class="el-icon-s-home" style="margin-right:6px;"></i>返回小工具
-                                </div>
-                            </div>
-                            <el-button slot="reference" class="brand-badge user-badge" style="font-family:inherit;font-weight:500;">
-                                <i class="el-icon-user" style="font-size:13px;"></i>
-                                <span>[[ displayName ]]</span>
-                            </el-button>
-                        </el-popover>
                     </div>
                 </header>
 
@@ -676,8 +735,8 @@
                 <div class="chat-body" ref="msgContainer" @touchmove="onChatTouchMove">
                     <div v-if="messages.length === 0 && !isLoading" class="welcome-area">
                         <div class="welcome-logo"><i class="el-icon-cpu"></i></div>
-                        <h2>有什么可以帮助你的？</h2>
-                        <p>我是 AI 助手，可以帮你解答问题、编写代码、创作内容</p>
+                        <h2>使用快速模式开始对话</h2>
+                        <p>给 DeepSeek 发送消息</p>
                     </div>
 
                     <div class="chat-inner" v-if="messages.length > 0">
@@ -719,7 +778,7 @@
                         <div class="input-row">
                             <textarea ref="inputEl"
                                 v-model="inputMessage"
-                                placeholder="给 AI 发送消息"
+                                placeholder="给 DeepSeek 发送消息"
                                 @keydown="handleKeydown"
                                 @touchmove="onInputTouchMove"
                                 :disabled="isLoading"
@@ -728,17 +787,33 @@
                                 @click="sendMessage"
                                 :disabled="isLoading || !inputMessage.trim()"
                                 title="发送">
-                                <i v-if="!isLoading" class="el-icon-position"></i>
+                                <i v-if="!isLoading" class="el-icon-top"></i>
                                 <i v-else class="el-icon-loading"></i>
                             </button>
                         </div>
                         <div class="input-footer">
                             <div class="footer-left">
-                                <button class="think-btn"
+                                <!-- Model Selector -->
+                                <el-popover placement="top-start" trigger="click" width="260" popper-class="model-popover">
+                                    <div v-for="m in models" :key="m.id"
+                                         class="model-pop-item"
+                                         :class="{ selected: selectedModel === m.id }"
+                                         @click="selectModel(m.id)">
+                                        <div class="pop-item-name">[[ m.name ]]</div>
+                                        <div class="pop-item-desc">[[ m.description ]]</div>
+                                    </div>
+                                    <button slot="reference" class="tag-btn model-tag">
+                                        <i class="el-icon-cpu" style="font-size:12px;"></i>
+                                        <span>[[ selectedModelName ]]</span>
+                                    </button>
+                                </el-popover>
+
+                                <!-- Deep Thinking Toggle -->
+                                <button class="tag-btn"
                                     :class="{ on: enableThinking, off: !supportsThinking }"
                                     @click="toggleThinking"
                                     :title="supportsThinking ? (enableThinking ? '关闭深度思考' : '开启深度思考') : '当前模型不支持深度思考'">
-                                    <span style="font-size:13px;">🧠</span>
+                                    <i class="el-icon-view" style="font-size:12px;"></i>
                                     深度思考
                                 </button>
                             </div>
@@ -747,6 +822,7 @@
                             </div>
                         </div>
                     </div>
+                    <div class="disclaimer">内容由 AI 生成，请仔细甄别</div>
                 </div>
             </main>
         </div>
@@ -816,7 +892,7 @@
                     models: [],
                     selectedModel: '',
                     enableThinking: false,
-                    sidebarVisible: true,
+                    sidebarVisible: false,
                     showSettings: false,
                     aiSaving: false,
                     aiConfig: {
@@ -844,6 +920,31 @@
                     return mid.indexOf('reasoner') >= 0 || mid.indexOf('r1') >= 0 ||
                            mid.indexOf('thinking') >= 0 || mid.indexOf('o1') >= 0 ||
                            mid.indexOf('o3') >= 0 || mid.indexOf('v4') >= 0;
+                },
+                currentConvTitle: function() {
+                    if (!this.currentConvId) return '';
+                    var conv = this.conversations.find(function(c) { return c.id === this.currentConvId; }.bind(this));
+                    return conv ? conv.title : '';
+                },
+                groupedConversations: function() {
+                    var now = new Date();
+                    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    var yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+
+                    var result = { today: [], yesterday: [], earlier: [] };
+                    this.conversations.forEach(function(c) {
+                        var updated = c.updated_at ? new Date(c.updated_at) : new Date();
+                        var updatedDate = new Date(updated.getFullYear(), updated.getMonth(), updated.getDate());
+
+                        if (updatedDate.getTime() === today.getTime()) {
+                            result.today.push(c);
+                        } else if (updatedDate.getTime() === yesterday.getTime()) {
+                            result.yesterday.push(c);
+                        } else {
+                            result.earlier.push(c);
+                        }
+                    });
+                    return result;
                 }
             },
             watch: {
@@ -854,10 +955,11 @@
             mounted: function() {
                 var self = this;
                 this.loadModels();
-                this.sidebarVisible = false;
                 this.loadConversations().then(function() {
-                    if (self.conversations.length > 0) {
+                    if (self.conversations.length === 0) {
                         self.newConversation();
+                    } else {
+                        self.selectConversation(self.conversations[0].id);
                     }
                 }).catch(function() {
                     self.newConversation();
@@ -888,11 +990,9 @@
                     }
                 },
                 onChatTouchMove: function(e) {
-                    // 手势劫持：阻止 chat-body 的触摸事件冒泡到 document，防止浏览器默认行为（如下拉刷新、回弹）
                     e.stopPropagation();
                 },
                 onInputTouchMove: function(e) {
-                    // 手势劫持：阻止输入区触摸事件冒泡，防止键盘弹出时页面异常滚动
                     e.stopPropagation();
                 },
 
@@ -949,6 +1049,8 @@
                             self.messages = [];
                             if (self.conversations.length > 0) {
                                 self.selectConversation(self.conversations[0].id);
+                            } else {
+                                self.newConversation();
                             }
                         }
                     }).catch(function() {});

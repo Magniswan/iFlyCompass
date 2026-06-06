@@ -741,6 +741,12 @@
                                 <!-- Waiting Room -->
                                 <div class="waiting-room" v-if="room.status === 'waiting'">
                                     <h2 style="margin: 0;">[[ room.name ]]</h2>
+                                    <div v-if="scores && (scores[0] > 0 || scores[1] > 0)" style="text-align: center; font-size: 14px; color: #ffd700; margin: 8px 0;">
+                                        <span v-for="(p, idx) in room.players" :key="idx" v-if="p">
+                                            [[ p.nickname || p.username ]]: [[ scores[p.seat] || 0 ]]胜
+                                            <span v-if="idx < room.players.filter(x=>x).length - 1">&nbsp;|&nbsp;</span>
+                                        </span>
+                                    </div>
                                     <div class="waiting-players">
                                         <div v-for="p in room.players" :key="p ? p.seat : -1" class="waiting-player">
                                             <div class="player-avatar-large" :class="{ empty: !p }">
@@ -770,6 +776,14 @@
                                 <canvas v-else id="chess-canvas" width="500" height="550"
                                     @click="onCanvasClick"
                                     ref="chessCanvas"></canvas>
+
+                                <!-- Score Display -->
+                                <div v-if="room.status === 'playing' && scores && (scores[0] > 0 || scores[1] > 0)" style="text-align: center; font-size: 13px; color: #ffd700; margin: 4px 0;">
+                                    <span v-for="(p, idx) in room.players" :key="idx" v-if="p">
+                                        [[ p.nickname || p.username ]]: [[ scores[p.seat] || 0 ]]胜
+                                        <span v-if="idx < room.players.filter(x=>x).length - 1">&nbsp;|&nbsp;</span>
+                                    </span>
+                                </div>
 
                                 <!-- Game Controls -->
                                 <div class="game-controls" v-if="room.status === 'playing'">
@@ -865,7 +879,16 @@
             <div class="game-over-winners">
                 [[ gameOverText ]]
             </div>
-            <el-button type="primary" @click="showGameOver = false; goBack()">返回大厅</el-button>
+            <div v-if="scores && room.players" style="margin-bottom: 16px; text-align: center; font-size: 14px; color: #ffd700;">
+                <span v-for="(p, idx) in room.players" :key="idx" v-if="p">
+                    [[ p.nickname || p.username ]]: [[ scores[p.seat] || 0 ]]胜
+                    <span v-if="idx < room.players.filter(x=>x).length - 1">&nbsp;|&nbsp;</span>
+                </span>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <el-button type="success" @click="playAgain" v-if="isCreator">再来一局</el-button>
+                <el-button type="primary" @click="showGameOver = false; goBack()">返回大厅</el-button>
+            </div>
         </div>
     </div>
 
