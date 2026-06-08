@@ -15,6 +15,19 @@ from .game import (
 )
 
 
+def _auto_choose_color(hand):
+    """自动选择手牌中最多的颜色"""
+    color_count = {'R': 0, 'Y': 0, 'G': 0, 'B': 0}
+    for c in hand:
+        cc = _card_color(c)
+        if cc in color_count:
+            color_count[cc] += 1
+    # 如果手牌为空或没有有色牌，随机选一个
+    if all(v == 0 for v in color_count.values()):
+        return random.choice(['R', 'Y', 'G', 'B'])
+    return max(color_count, key=color_count.get)
+
+
 def _player_seat(room, user_id):
     for i, p in enumerate(room['players']):
         if p and p['user_id'] == user_id:
@@ -50,9 +63,9 @@ def _room_summary(room):
     }
 
 
-def _broadcast_card_played(room, seat, card, effects):
+def _broadcast_card_played(room, seat, card, effects, auto_play=False):
     gs = room['game_state']
-    emit('card_played', {
+    data = {
         'room_id': room['room_id'], 'seat': seat, 'card': card,
         'chosen_color': gs['top_color'] if _card_color(card) == 'wild' else None,
         'top_color': gs['top_color'], 'top_card': gs['top_card'],
@@ -60,7 +73,10 @@ def _broadcast_card_played(room, seat, card, effects):
         'draw_stack': gs.get('draw_stack', 0),
         'effects': effects,
         'hand_counts': {str(s): len(h) for s, h in gs['hands'].items()}
-    }, room=room['room_id'])
+    }
+    if auto_play:
+        data['auto_play'] = True
+    emit('card_played', data, room=room['room_id'])
 
 
 def _broadcast_turn_change(room, next_turn):
@@ -76,14 +92,7 @@ def _broadcast_effects(room, seat, effects):
     gs = room['game_state']
     room_id = room['room_id']
 
-    # 同色全弃
-    for eff in effects:
-        if eff.startswith('all_discard_'):
-            hands_count = {str(s): len(h) for s, h in gs['hands'].items()}
-            emit('hands_updated', {
-                'room_id': room_id, 'hands_count': hands_count
-            }, room=room_id)
-            return
+    # 同色全弃效果由 card_played 事件统一处理，前端根据 effect 过滤手牌
 
     # 手牌交换
     if effects and effects[0] == 'hand_swap' and len(effects) > 1:
@@ -184,8 +193,8 @@ def register_socketio_events(socketio):
                     gs = room['game_state']
                     active = _active_seats(room)
                     for s in [s for s in active if s != seat]:
-                        if s not in gs['rankings']:
-                            gs['rankings'].append(s)
+                        if s not in gs['eliminated_order']:
+                            gs['eliminated_order'].append(s)
                     end_game(room, 'creator_left')
                 room['status'] = 'ended'
                 emit('room_disbanded', {'room_id': room_id, 'reason': 'creator_left'}, room=room_id)
@@ -295,6 +304,10 @@ def register_socketio_events(socketio):
             if gs['phase'] != 'playing':
                 emit('error', {'message': '不在出牌阶段'})
                 return
+            # CR 罚抽颜色未完成时禁止出牌
+            if gs.get('_roulette_pending') is not None:
+                emit('error', {'message': '请先完成罚抽颜色'})
+                return
             seat = _player_seat(room, current_user.id)
             if seat is None:
                 emit('error', {'message': '您不在该房间中'})
@@ -337,30 +350,47 @@ def register_socketio_events(socketio):
             gs['_needs_roulette'] = None
             effects = apply_card_effect(gs, card, seat, room, target_seat=target_seat)
 
+            # 先广播出牌事件，再广播特殊效果（交换/传递会覆盖手牌）
+            _broadcast_card_played(room, seat, card, effects)
+
             # CR 罚抽颜色交互
             roulette_seat = gs.pop('_needs_roulette', None)
             if roulette_seat is not None:
                 next_seat = _get_next_turn(roulette_seat, gs['direction'], room['players'])
+                gs['_roulette_pending'] = next_seat
                 emit('color_roulette', {
                     'room_id': room_id, 'seat': next_seat, 'from_seat': roulette_seat
                 }, room=room_id)
 
-            # 广播特殊效果
+            # 广播特殊效果（交换/传递等，会覆盖客户端手牌）
             _broadcast_effects(room, seat, effects)
 
-            # 检查出完手牌
-            hand_emptied = check_empty_hand(room, seat)
-            if hand_emptied:
-                if check_game_over(room):
-                    end_game(room, 'cards_finished')
-                    return
+            # 检查所有玩家空手牌和淘汰（手牌交换/传递/全弃可能影响其他玩家）
+            hand_changed = any(e.startswith('all_discard_') for e in effects) or \
+                           (effects and effects[0] == 'hand_swap') or \
+                           'hands_pass' in effects
+            if hand_changed:
+                for s in list(gs['hands'].keys()):
+                    if check_empty_hand(room, s):
+                        if check_game_over(room):
+                            end_game(room, 'cards_finished')
+                            return
+                    elif check_elimination(room, s):
+                        if check_game_over(room):
+                            end_game(room, 'elimination')
+                            return
+            else:
+                if check_empty_hand(room, seat):
+                    if check_game_over(room):
+                        end_game(room, 'cards_finished')
+                        return
 
             # 推进回合
             next_turn = advance_turn_after_play(room, seat, effects)
             if next_turn is None:
                 return
 
-            _broadcast_card_played(room, seat, card, effects)
+            gs['current_turn'] = next_turn
             _broadcast_turn_change(room, next_turn)
 
         except Exception as e:
@@ -378,6 +408,8 @@ def register_socketio_events(socketio):
             seat = _player_seat(room, current_user.id)
             if seat is None or seat not in gs['hands']:
                 return
+            # 清除罚抽颜色等待标记
+            gs.pop('_roulette_pending', None)
             hand = gs['hands'][seat]
             drawn = []
             while True:
@@ -416,6 +448,10 @@ def register_socketio_events(socketio):
                 return
             gs = room['game_state']
             if gs['phase'] != 'playing':
+                return
+            # CR 罚抽颜色未完成时禁止抽牌
+            if gs.get('_roulette_pending') is not None:
+                emit('error', {'message': '请先完成罚抽颜色'})
                 return
             seat = _player_seat(room, current_user.id)
             if seat is None or gs['current_turn'] != seat:
@@ -458,52 +494,92 @@ def register_socketio_events(socketio):
                 drawn.append(c)
                 hand.append(c)
                 if is_playable(gs['top_card'], gs['top_color'], c):
+                    # 7需要选择目标，不能自动打出，加入手牌结束回合
+                    if _card_value(c) == '7':
+                        gs['hands'][seat] = hand
+                        emit('player_drew', {
+                            'room_id': room_id, 'seat': seat,
+                            'cards': drawn, 'count': len(drawn),
+                            'reason': 'draw_to_play'
+                        }, room=room_id)
+                        next_turn = _get_next_turn(seat, gs['direction'], room['players'])
+                        gs['current_turn'] = next_turn
+                        _broadcast_turn_change(room, next_turn)
+                        return
+
                     # 自动打出
                     hand.remove(c)
                     gs['discard_pile'].append(c)
                     gs['top_card'] = c
-                    if _card_color(c) != 'wild':
+
+                    # 处理颜色（万能牌自动选择手牌最多的颜色）
+                    if _card_color(c) == 'wild':
+                        gs['top_color'] = _auto_choose_color(hand)
+                    else:
                         gs['top_color'] = _card_color(c)
-                    card_draw = _get_draw_value(c)
-                    if card_draw > 0:
-                        gs['draw_stack'] = card_draw
 
-                    is_skip_play = _card_value(c) == 'skip' or (_card_value(c) == 'rev' and len(_active_seats(room)) == 2)
+                    # 应用卡牌效果
+                    gs['_skip_next'] = False
+                    gs['_repeat_turn'] = False
+                    gs['_needs_roulette'] = None
+                    effects = apply_card_effect(gs, c, seat, room)
 
-                    if not hand:
-                        if seat not in gs['rankings']:
-                            gs['rankings'].append(seat)
-                        emit('player_eliminated', {
-                            'room_id': room_id, 'seat': seat,
-                            'rank': len(gs['rankings']), 'reason': 'empty_hand'
+                    # 广播出牌
+                    _broadcast_card_played(room, seat, c, effects, auto_play=True)
+
+                    # CR 罚抽颜色交互
+                    roulette_seat = gs.pop('_needs_roulette', None)
+                    if roulette_seat is not None:
+                        next_seat = _get_next_turn(roulette_seat, gs['direction'], room['players'])
+                        gs['_roulette_pending'] = next_seat
+                        emit('color_roulette', {
+                            'room_id': room_id, 'seat': next_seat, 'from_seat': roulette_seat
                         }, room=room_id)
-                        if check_game_over(room):
-                            end_game(room, 'cards_finished')
-                            return
 
-                    emit('card_played', {
-                        'room_id': room_id, 'seat': seat, 'card': c,
-                        'top_color': gs['top_color'], 'top_card': gs['top_card'],
-                        'remaining': len(hand), 'draw_stack': gs.get('draw_stack', 0),
-                        'auto_play': True,
-                        'hand_counts': {str(s): len(h) for s, h in gs['hands'].items()}
-                    }, room=room_id)
+                    # 广播特殊效果
+                    _broadcast_effects(room, seat, effects)
+
+                    # 检查空手牌和淘汰
+                    hand_changed = any(e.startswith('all_discard_') for e in effects) or \
+                                   (effects and effects[0] == 'hand_swap') or \
+                                   'hands_pass' in effects
+                    game_ended_flag = False
+                    if hand_changed:
+                        for s in list(gs['hands'].keys()):
+                            if check_empty_hand(room, s):
+                                if check_game_over(room):
+                                    end_game(room, 'cards_finished')
+                                    game_ended_flag = True
+                                    break
+                            elif check_elimination(room, s):
+                                if check_game_over(room):
+                                    end_game(room, 'elimination')
+                                    game_ended_flag = True
+                                    break
+                    else:
+                        if check_empty_hand(room, seat):
+                            if check_game_over(room):
+                                end_game(room, 'cards_finished')
+                                game_ended_flag = True
+                        elif check_elimination(room, seat):
+                            if check_game_over(room):
+                                end_game(room, 'elimination')
+                                game_ended_flag = True
+
+                    if game_ended_flag:
+                        return
+
+                    # 推进回合
+                    next_turn = advance_turn_after_play(room, seat, effects)
+                    if next_turn is None:
+                        return
+
+                    gs['current_turn'] = next_turn
                     emit('player_drew', {
                         'room_id': room_id, 'seat': seat,
                         'cards': drawn, 'count': len(drawn),
                         'reason': 'draw_to_play', 'auto_played': c
                     }, room=room_id)
-                    check_elimination(room, seat)
-                    if check_game_over(room):
-                        end_game(room, 'elimination')
-                        return
-                    if is_skip_play:
-                        next_turn = _get_next_turn(
-                            _get_next_turn(seat, gs['direction'], room['players']),
-                            gs['direction'], room['players'])
-                    else:
-                        next_turn = _get_next_turn(seat, gs['direction'], room['players'])
-                    gs['current_turn'] = next_turn
                     _broadcast_turn_change(room, next_turn)
                     return
 

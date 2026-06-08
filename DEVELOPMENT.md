@@ -4,7 +4,7 @@
 
 ### REL3.1.1
 
-**UNO No Mercy 结构化重构 — 卡牌效果系统 + 前后端优化**
+**UNO No Mercy 结构化重构 — 卡牌效果系统 + 前后端优化 + 多项功能增强与 Bug 修复**
 
 #### 一、后端：卡牌效果注册表体系
 
@@ -62,7 +62,86 @@
     - `getHandCount(seat)` 直接读取 `handCounts[seat]` 而非数组长度
     - `card_played` 和 `player_drew` 事件接收 `hand_counts` 后更新本地缓存
 
-#### 三、代码变更清单
+#### 三、前端变更清单（UNO No Mercy 重构）
+
+| 文件 | 动作 | 说明 |
+|------|------|------|
+| `assets/js/uno_nomer.js` | 重构 | 事件分组 + handCounts 替代伪数组 |
+
+#### 四、积分系统与再来一局功能
+
+为斗地主、象棋、五子棋、UNO、UNO No Mercy 五款联机游戏统一添加积分系统和再来一局功能。
+
+- **积分系统**：
+  - 每局游戏结束后自动根据胜负结果计算积分
+  - 积分数据写入 `user_game_stats` 表，支持排行榜查看
+  - 所有五款游戏共享统一的积分计算逻辑
+
+- **再来一局**：
+  - 游戏结束界面新增"再来一局"按钮
+  - 房主点击后自动保留当前房间和玩家，重新初始化游戏状态
+  - 无需退出房间重新创建，简化玩家操作流程
+
+- **影响文件**：
+  - `modules/game_doudizhu/websocket.py` — 积分计算 + 再来一局
+  - `modules/game_chess/websocket.py` — 积分计算 + 再来一局
+  - `modules/game_gomoku/websocket.py` — 积分计算 + 再来一局
+  - `modules/game_uno/websocket.py` — 积分计算 + 再来一局
+  - `modules/game_uno_nomer/websocket.py` — 积分计算 + 再来一局
+  - `assets/js/doudizhu.js` — 再来一局 UI
+  - `assets/js/chess.js` — 再来一局 UI
+  - `assets/js/gomoku.js` — 再来一局 UI
+  - `assets/js/uno.js` — 再来一局 UI
+  - `assets/js/uno_nomer.js` — 再来一局 UI
+  - 各游戏 HTML 模板 — 再来一局按钮
+
+#### 五、管理员开关用户选项
+
+- **功能描述**：管理员可在用户管理页面禁用或启用用户账号
+  - 被禁用的用户登录时会被重定向到账号维护页面（`maintenance.html`），提示账号已被管理员禁用
+  - 管理员可随时重新启用被禁用的账号
+- **数据模型**：`User` 模型新增 `is_disabled` 字段（布尔值）
+- **影响文件**：
+  - `models/user.py` — 新增 `is_disabled` 字段
+  - `modules/auth/api.py` — 登录时检查禁用状态
+  - `modules/auth/routes.py` — 禁用用户重定向到维护页面
+  - `app.py` — 数据库迁移：`ALTER TABLE users ADD COLUMN is_disabled`
+  - `templates/user_management.html` — 管理员界面新增禁用/启用按钮
+  - `templates/maintenance.html` — 新增账号维护提示页面
+
+#### 六、B站视频转编码选项
+
+- **功能描述**：B站视频缓存时，用户可自主选择是否对视频进行转编码处理
+  - 新增转编码开关选项，保存在用户配置中
+  - 默认不转编码，用户可根据需要手动开启
+  - 开启转编码后，下载的视频会经过 FFmpeg 转码处理（通常用于兼容性优化）
+- **影响文件**：
+  - `app.py` — 新增转编码相关配置
+  - `models/user.py` — 新增转编码偏好字段
+  - `modules/bili/api.py` — 转编码选项 API
+  - `modules/bili/download_service.py` — 下载服务支持转编码开关
+  - `templates/bili_player.html` — 前端转编码选项 UI
+
+#### 七、Bug 修复
+
+- **修复用户无法更改密码**（`01ef7d3`）：
+  - **问题**：密码修改接口存在逻辑错误，导致用户提交新密码后修改不生效
+  - **修复**：修正 `modules/auth/api.py` 中密码修改逻辑
+  - **影响文件**：`modules/auth/api.py`
+
+- **修复网页代理相关问题**（`f9b4526`）：
+  - **问题**：网页代理功能存在连接和请求处理问题
+  - **修复**：优化 `proxy_addon.py` 中的请求处理逻辑
+  - **影响文件**：`modules/proxy/proxy_addon.py`、`templates/bili_player.html`、`templates/web_proxy.html`
+
+#### 八、项目结构优化
+
+- **移除本地 libs 第三方依赖**（`47d445a`）：
+  - 移除项目 `libs/` 目录下所有第三方依赖包文件（argon2, asgiref, attrs, bcrypt, blinker, brotli, certifi, cffi, click, colorama, cryptography 等）
+  - 所有依赖通过 `pip install -r requirements.txt` 安装，不再将第三方包纳入版本控制
+  - 精简项目体积，减少仓库大小约 86,000 行代码
+
+#### 九、代码变更清单
 
 | 文件 | 动作 | 说明 |
 |------|------|------|
@@ -71,6 +150,20 @@
 | `modules/game_uno_nomer/websocket.py` | 重写 | 998→609 行，on_play_card 230→84 行 |
 | `modules/game_uno_nomer/__init__.py` | 修改 | 新增 exports |
 | `assets/js/uno_nomer.js` | 重构 | 事件分组 + handCounts 替代伪数组 |
+| `modules/game_doudizhu/websocket.py` | 修改 | 积分系统 + 再来一局 |
+| `modules/game_chess/websocket.py` | 修改 | 积分系统 + 再来一局 |
+| `modules/game_gomoku/websocket.py` | 修改 | 积分系统 + 再来一局 |
+| `modules/game_uno/websocket.py` | 修改 | 积分系统 + 再来一局 |
+| `models/user.py` | 修改 | 新增 is_disabled 字段 |
+| `modules/auth/api.py` | 修改 | 登录禁用检查 + 密码修改修复 |
+| `modules/auth/routes.py` | 修改 | 禁用用户重定向 |
+| `modules/bili/api.py` | 修改 | 转编码选项 API |
+| `modules/bili/download_service.py` | 修改 | 下载服务转编码开关 |
+| `modules/proxy/proxy_addon.py` | 修改 | 代理请求处理修复 |
+| `templates/maintenance.html` | 新建 | 账号维护提示页面 |
+| `templates/bili_player.html` | 修改 | 转编码选项 UI |
+| `templates/user_management.html` | 修改 | 禁用/启用按钮 |
+| `app.py` | 修改 | 数据库迁移 + 配置 |
 
 ### REL3.1.0
 

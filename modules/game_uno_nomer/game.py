@@ -25,14 +25,19 @@ def check_empty_hand(room, seat):
     """检查手牌为空，排名并广播，返回 True 表示出完"""
     gs = room['game_state']
     if seat in gs['hands'] and not gs['hands'][seat]:
-        if seat not in gs['rankings']:
-            gs['rankings'].append(seat)
+        p = room['players'][seat]
+        if p:
+            p['eliminated'] = True
+        del gs['hands'][seat]
+        if seat not in gs['finish_order']:
+            gs['finish_order'].append(seat)
+        rank = len(gs['finish_order'])
         emit('player_eliminated', {
             'room_id': room['room_id'], 'seat': seat,
-            'rank': len(gs['rankings']), 'reason': 'empty_hand'
+            'rank': rank, 'reason': 'empty_hand'
         }, room=room['room_id'])
         player_name = room['players'][seat]['username'] if room['players'][seat] else '玩家'
-        _system_msg(room, f"{player_name} 出完了手牌，获得第{len(gs['rankings'])}名！")
+        _system_msg(room, f"{player_name} 出完了手牌，获得第{rank}名！")
         return True
     return False
 
@@ -42,8 +47,8 @@ def check_game_over(room):
     gs = room['game_state']
     active = _active_seats(room)
     if len(active) <= 1:
-        if active and active[0] not in gs['rankings']:
-            gs['rankings'].append(active[0])
+        if active and active[0] not in gs['finish_order'] and active[0] not in gs['eliminated_order']:
+            gs['finish_order'].append(active[0])
         return True
     return False
 
@@ -53,7 +58,8 @@ def end_game(room, reason=''):
     gs = room['game_state']
     gs['phase'] = 'ended'
     room['status'] = 'ended'
-    rankings = gs.get('rankings', [])
+    # 最终排名：先出完手牌的排名靠前，被淘汰的排名靠后
+    rankings = gs.get('finish_order', []) + gs.get('eliminated_order', [])
     winner_seats = rankings[:1] if rankings else []
     _save_game_record(room, winner_seats, reason)
     emit('game_ended', {
@@ -71,7 +77,11 @@ def advance_turn_after_play(room, seat, effects):
     gs = room['game_state']
     direction = gs['direction']
 
-    if seat in gs['hands'] and not gs['hands'][seat]:
+    # 玩家已出完手牌（手牌被 check_empty_hand 删除），直接推进
+    if seat not in gs['hands']:
+        return _get_next_turn(seat, direction, room['players'])
+
+    if not gs['hands'][seat]:
         return _get_next_turn(seat, direction, room['players'])
 
     if check_elimination(room, seat):
@@ -100,12 +110,14 @@ def _eliminate_player(room, seat, reason='hand_limit'):
         if seat in gs['hands']:
             gs['discard_pile'].extend(gs['hands'][seat])
             del gs['hands'][seat]
-        if seat not in gs['rankings']:
-            gs['rankings'].append(seat)
+        if seat not in gs['eliminated_order']:
+            gs['eliminated_order'].append(seat)
+        # 被淘汰的排名 = 出完手牌的人数 + 在淘汰中的顺序
+        rank = len(gs['finish_order']) + len(gs['eliminated_order'])
         emit('player_eliminated', {
             'room_id': room['room_id'],
             'seat': seat,
-            'rank': len(gs['rankings']),
+            'rank': rank,
             'reason': reason
         }, room=room['room_id'])
 
@@ -193,7 +205,8 @@ def init_game_state(room):
         'direction': 1,
         'phase': 'playing',
         'draw_stack': 0,
-        'rankings': [],
+        'finish_order': [],
+        'eliminated_order': [],
         'uno_called': {},
     }
 

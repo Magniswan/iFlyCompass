@@ -81,6 +81,16 @@
             this.loadRooms();
             this.bindAllEvents();
             document.addEventListener('click', this.closeUserMenu);
+            // 从URL参数自动加入房间
+            var urlParams = new URLSearchParams(window.location.search);
+            var rid = urlParams.get('room_id');
+            if (rid) {
+                this.roomId = rid;
+                this.messages = [];
+                this.resetGameState();
+                socket.emit('join_room', { room_id: rid });
+                window.history.replaceState({}, '', window.location.pathname);
+            }
         },
         beforeDestroy: function() {
             document.removeEventListener('click', this.closeUserMenu);
@@ -372,7 +382,7 @@
                         phase: d.phase, current_turn: d.current_turn,
                         top_card: d.top_card, top_color: d.top_color,
                         direction: d.direction, draw_stack: 0,
-                        rankings: [], hands: d.hands || {}
+                        finish_order: [], eliminated_order: [], hands: d.hands || {}
                     };
                     if (d.hand_counts) s.handCounts = d.hand_counts;
                     if (d.hands) {
@@ -445,8 +455,9 @@
                         var p = s.room.players[d.seat];
                         if (p) p.eliminated = true;
                     }
-                    if (s.gameState.rankings && d.seat != null) {
-                        if (s.gameState.rankings.indexOf(d.seat) === -1) s.gameState.rankings.push(d.seat);
+                    var orderList = (d.reason === 'empty_hand') ? s.gameState.finish_order : s.gameState.eliminated_order;
+                    if (orderList && d.seat != null) {
+                        if (orderList.indexOf(d.seat) === -1) orderList.push(d.seat);
                     }
                     var p = s.room.players[d.seat], n = p ? (p.nickname || p.username) : '玩家';
                     if (d.reason === 'empty_hand') s.$message.success(n + ' 出完手牌，排名第' + (d.rank || '?') + '！');

@@ -173,6 +173,17 @@
             this.loadRooms();
             this.bindSocketEvents();
             document.addEventListener('click', this.closeUserMenu);
+            // 从URL参数自动加入房间
+            var urlParams = new URLSearchParams(window.location.search);
+            var rid = urlParams.get('room_id');
+            if (rid) {
+                this.roomId = rid;
+                this.messages = [];
+                this.resetGameState();
+                socket.emit('join_room', { room_id: rid });
+                // 清除URL参数，避免刷新时重复加入
+                window.history.replaceState({}, '', window.location.pathname);
+            }
         },
         beforeDestroy: function() {
             document.removeEventListener('click', this.closeUserMenu);

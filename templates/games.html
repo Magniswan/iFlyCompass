@@ -415,7 +415,7 @@
                         }
                         self.showCreateDialog = false;
                         self.$message.success('房间创建成功，正在跳转...');
-                        window.location.href = '/games/' + self.createForm.gameType;
+                        window.location.href = '/games/' + self.createForm.gameType + '?room_id=' + data.room_id;
                     })
                     .catch(function(error) {
                         self.createLoading = false;
@@ -468,7 +468,7 @@
                             return;
                         }
                         self.$message.success('加入成功，正在跳转...');
-                        window.location.href = '/games/' + roomItem.game_type;
+                        window.location.href = '/games/' + roomItem.game_type + '?room_id=' + roomItem.room_id;
                     })
                     .catch(function(error) {
                         if (error.message === '密码错误') {
