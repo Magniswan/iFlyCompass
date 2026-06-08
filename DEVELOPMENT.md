@@ -141,13 +141,77 @@
   - 所有依赖通过 `pip install -r requirements.txt` 安装，不再将第三方包纳入版本控制
   - 精简项目体积，减少仓库大小约 86,000 行代码
 
-#### 九、代码变更清单
+#### 九、游戏大厅加入房间跳转修复
+
+修复从游戏大厅（games.html）创建或加入房间后，跳转到游戏页面但未进入房间内部的问题。
+
+- **问题描述**：
+  - 用户在游戏大厅创建房间或点击加入房间后，跳转到 `/games/<game_type>` 仅加载游戏页面
+  - 页面停留在房间列表视图，未自动进入已创建/加入的房间
+  - 用户需要手动在房间列表中再次点击房间按钮才能进入
+
+- **修复方案**：
+  - 大厅跳转 URL 携带 `room_id` 查询参数（如 `/games/doudizhu?room_id=ABC123`）
+  - 各游戏页面的 Vue `mounted` 钩子中检测 `room_id` 参数
+  - 检测到参数后自动通过 Socket.IO 发送 `join_room` 事件进入房间
+  - 自动清除 URL 参数，避免页面刷新时重复加入
+
+- **影响文件**：
+  - `templates/games.html` — 创建/加入房间跳转 URL 添加 `room_id` 参数
+  - `assets/js/doudizhu.js` — `mounted` 中检测 URL 参数自动加入房间
+  - `assets/js/chess.js` — 同上
+  - `assets/js/gomoku.js` — 同上
+  - `assets/js/uno.js` — 同上
+  - `assets/js/uno_nomer.js` — 同上
+
+#### 十、UNO No Mercy 卡牌效果 Bug 修复
+
+修复多个会导致回合无法推进、手牌混乱的严重 Bug。
+
+- **回合无法推进修复**：
+  - **问题**：打出 0（手牌传递）或 7（手牌交换）后，下家出牌被"不是您的回合"拒绝
+  - **根因**：`on_play_card` 中从未更新 `gs['current_turn']`，服务端始终认为是当前玩家回合
+  - **修复**：`on_play_card` 和 `draw_card` 自动出牌分支均增加 `gs['current_turn'] = next_turn`
+
+- **服务端淘汰状态不一致修复**：
+  - **问题**：`check_empty_hand` 仅广播 `player_eliminated` 事件，未在服务端标记 `eliminated=True` 及删除手牌，导致 `advance_turn_after_play` 仍将其视为活跃玩家
+  - **修复**：空手牌玩家标记 `p['eliminated'] = True`，`del gs['hands'][seat]`
+
+- **手牌效果后多玩家空手牌检查缺失**：
+  - **问题**：手牌交换/传递/全弃可能使其他玩家空手牌，但 `on_play_card` 仅检查出牌者自身
+  - **修复**：手牌变化后遍历 `gs['hands']` 中所有座位检查空手牌和淘汰
+
+- **广播顺序修复**：
+  - **问题**：`_broadcast_effects`（交换/传递）在 `_broadcast_card_played` 之前发送，导致客户端先收到交换事件覆盖手牌，又被 `card_played` 的 `splice` 误删
+  - **修复**：调整为先 `_broadcast_card_played`，再 `_broadcast_effects`
+
+- **draw_card 自动出牌效果缺失**：
+  - **问题**：抽牌后自动打出时，未调用 `apply_card_effect`，所有卡牌效果和回合推进逻辑全部未执行
+  - **修复**：重构自动出牌分支，调用 `apply_card_effect` 统一处理所有效果（NR+4 反转/+10 叠加/SE 全场跳过等），新增 `_auto_choose_color` 辅助函数处理万能牌自动选色
+
+- **CR 罚抽颜色竞态修复**：
+  - **问题**：罚抽颜色弹窗未消失时，该玩家可能进行出牌或抽牌操作，导致状态混乱
+  - **修复**：新增 `_roulette_pending` 标记，`on_play_card` 和 `on_draw_card` 开头检查并拒绝操作；`color_roulette_pick` 完成后清除标记
+
+- **同色全弃牌显示修复**：
+  - **问题**：打出同色全弃牌（ac）时，服务端提前发送仅含手牌数量的 `hands_updated` 事件，导致客户端截断错误的手牌
+  - **修复**：移除 `_broadcast_effects` 中 `all_discard` 的提前广播，由 `card_played` 事件统一处理
+
+- **draw_card 自动出牌 7 牌处理**：
+  - **问题**：抽到 7 时自动打出但不选择交换目标
+  - **修复**：抽到 7 时跳过自动打出，加入手牌结束回合
+
+- **影响文件**：
+  - `modules/game_uno_nomer/websocket.py` — 核心修复（回合推进/广播顺序/自动出牌/CR竞态/同色全弃）
+  - `modules/game_uno_nomer/game.py` — 服务端淘汰标记/空手牌回合推进
+
+#### 十一、代码变更清单
 
 | 文件 | 动作 | 说明 |
 |------|------|------|
 | `modules/game_uno_nomer/effects.py` | 新建 | 14 种卡牌效果注册表 |
-| `modules/game_uno_nomer/game.py` | 新建 | 统一游戏操作 + 修复 loser_names bug |
-| `modules/game_uno_nomer/websocket.py` | 重写 | 998→609 行，on_play_card 230→84 行 |
+| `modules/game_uno_nomer/game.py` | 新建 | 统一游戏操作 + 修复 loser_names bug + 服务端淘汰标记 |
+| `modules/game_uno_nomer/websocket.py` | 重写 | 998→609 行，on_play_card 230→84 行 + 回合推进/广播顺序/自动出牌/CR竞态修复 |
 | `modules/game_uno_nomer/__init__.py` | 修改 | 新增 exports |
 | `assets/js/uno_nomer.js` | 重构 | 事件分组 + handCounts 替代伪数组 |
 | `modules/game_doudizhu/websocket.py` | 修改 | 积分系统 + 再来一局 |
@@ -164,6 +228,58 @@
 | `templates/bili_player.html` | 修改 | 转编码选项 UI |
 | `templates/user_management.html` | 修改 | 禁用/启用按钮 |
 | `app.py` | 修改 | 数据库迁移 + 配置 |
+| `templates/games.html` | 修改 | 创建/加入房间跳转添加 room_id 参数 |
+| `assets/js/doudizhu.js` | 修改 | mounted 中检测 URL 参数自动加入房间 |
+| `assets/js/chess.js` | 修改 | mounted 中检测 URL 参数自动加入房间 |
+| `assets/js/gomoku.js` | 修改 | mounted 中检测 URL 参数自动加入房间 |
+| `assets/js/uno.js` | 修改 | mounted 中检测 URL 参数自动加入房间 |
+| `assets/js/uno_nomer.js` | 修改 | mounted 中检测 URL 参数自动加入房间 |
+
+#### 十二、UNO No Mercy 排名逻辑修复
+
+修复淘汰玩家和出完手牌玩家共用同一排名列表导致的排名错误。
+
+- **问题描述**：
+  - 原设计使用单一 `rankings` 列表，出完手牌和被淘汰的玩家按时间顺序追加到同一列表
+  - 先被淘汰（手牌 ≥25）的玩家反而比后出完手牌的玩家排名更好，逻辑错误
+  - 例如：玩家A出完手牌排第1名，玩家B被淘汰排第2名——但B实际上是最后一名
+
+- **修复方案**：
+  - 将 `rankings` 拆分为两个独立列表：
+    - `finish_order`：出完手牌的玩家（名次靠前，按出完顺序排列）
+    - `eliminated_order`：被淘汰的玩家（名次靠后，按淘汰顺序排列）
+  - `end_game()` 时合并为 `finish_order + eliminated_order` 生成最终排名
+  - 淘汰玩家的排名 = 出完手牌人数 + 淘汰中的顺序
+
+- **影响文件**：
+  - `modules/game_uno_nomer/game.py` — `check_empty_hand`/`check_game_over`/`end_game`/`_eliminate_player`/`init_game_state` 使用新双列表结构
+  - `modules/game_uno_nomer/websocket.py` — 创建者离开时其他活跃玩家加入 `eliminated_order`
+  - `assets/js/uno_nomer.js` — 前端 `gameState` 和 `player_eliminated` 事件适配 `finish_order`/`eliminated_order`
+
+#### 十三、UNO 万能牌颜色选择按钮修复
+
+- **问题描述**：
+  - 玩家打出万能牌时前端弹出颜色选择面板，但四个颜色按钮（红/黄/绿/蓝）为透明背景
+  - `.color-picker-btn` 只有 `width`、`height`、`border` 等基础样式，缺少 `.R`/`.Y`/`.G`/`.B` 子类的背景色定义
+
+- **修复方案**：
+  - 为 `uno.html` 中 `.color-picker-btn.R/Y/G/B` 添加背景色（红 `#e74c3c`、黄 `#f1c40f`、绿 `#27ae60`、蓝 `#3498db`）
+  - 为 `uno_nomer.html` 中 `.color-picker-btn.R/Y/G/B` 添加背景色（红 `#c0392b`、黄 `#d4a017`、绿 `#1e8449`、蓝 `#2471a3`）
+  - 颜色值与各游戏卡牌本身的颜色保持一致
+
+- **影响文件**：
+  - `templates/uno.html` — 新增 `.color-picker-btn.R/Y/G/B` CSS 规则
+  - `templates/uno_nomer.html` — 新增 `.color-picker-btn.R/Y/G/B` CSS 规则
+
+#### 十四、代码变更清单（补充）
+
+| 文件 | 动作 | 说明 |
+|------|------|------|
+| `modules/game_uno_nomer/game.py` | 修改 | 排名逻辑：rankings 拆分为 finish_order + eliminated_order |
+| `modules/game_uno_nomer/websocket.py` | 修改 | 创建者离开时排名逻辑适配 |
+| `assets/js/uno_nomer.js` | 修改 | 前端适配双列表排名结构 |
+| `templates/uno.html` | 修改 | 颜色选择按钮添加背景色 |
+| `templates/uno_nomer.html` | 修改 | 颜色选择按钮添加背景色 |
 
 ### REL3.1.0
 
